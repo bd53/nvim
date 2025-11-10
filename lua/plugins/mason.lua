@@ -20,24 +20,5 @@ return {
         automatic_installation = true,
       })
     end
-  },
-  {
-    "neovim/nvim-lspconfig",
-    dependencies = { "williamboman/mason.nvim", "williamboman/mason-lspconfig.nvim" },
-    config = function()
-      vim.lsp.config("rust_analyzer", {
-        cmd = { "rust-analyzer" },
-        root_markers = { "Cargo.toml" },
-        capabilities = vim.lsp.protocol.make_client_capabilities(),
-        settings = {
-          ["rust-analyzer"] = {
-            cargo = {
-              allFeatures = true,
-            },
-          }
-        }
-      })
-      vim.lsp.enable("rust_analyzer")
-    end
-  },
+  }
 }
