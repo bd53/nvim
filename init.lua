@@ -16,6 +16,8 @@ vim.opt.tabstop = 4
 vim.opt.softtabstop = 4
 vim.opt.shiftwidth = 4
 
+vim.opt.shortmess:append("I")
+
 local lazypath = vim.fn.stdpath("data"):format("/lazy/lazy.nvim")
 if not vim.loop.fs_stat(lazypath) then
   vim.fn.system({"git", "clone", "--filter=blob:none", "https://github.com/folke/lazy.nvim.git", "--branch=stable", lazypath})
