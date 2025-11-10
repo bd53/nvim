@@ -19,7 +19,7 @@ end, opts)
 vim.keymap.set("n", "<Tab>", ":bnext<CR>", opts)
 vim.keymap.set("n", "<S-Tab>", ":bprevious<CR>", opts)
 
-vim.keymap.set("n", "<leader>ot", ":botright split | term<CR>", opts)
+vim.keymap.set("n", "<leader>ot", ":vsplit | term<CR>", opts)
 vim.keymap.set("n", "<leader>ct", ":bd!<CR>", opts)
 
 vim.keymap.set("n", "<leader>cd", function()
