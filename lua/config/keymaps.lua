@@ -27,3 +27,8 @@ vim.keymap.set("n", "<leader>cd", function()
     vim.cmd(("cd %s"):format(input))
   end)
 end, opts)
+
+vim.keymap.set('n', '<leader>ih', function()
+  vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
+  print(("Inlay hints: %s"):format(vim.lsp.inlay_hint.is_enabled()))
+end, opts)
