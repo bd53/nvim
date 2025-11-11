@@ -1,8 +1,8 @@
-local M = {}
+local Gruvbox = {}
 
 -- https://github.com/ellisonleao/gruvbox.nvim/blob/main/lua/gruvbox.lua#L74
 ---@class GruvboxPalette
-M.palette = {
+Gruvbox.palette = {
   dark0_hard = "#1d2021",
   dark0 = "#282828",
   dark0_soft = "#32302f",
@@ -41,11 +41,12 @@ M.palette = {
   gray = "#928374",
 }
 
-M.current_mode = "dark"
+Gruvbox.current_mode = "dark"
 
-local function highlight(p)
+local function setup_highlights()
+  local p = Gruvbox.palette
   local set = vim.api.nvim_set_hl
-  if M.current_mode == "dark" then
+  if Gruvbox.current_mode == "dark" then
     vim.cmd("set background=dark")
     set(0, "Normal", { fg = p.light1, bg = p.dark0 })
     set(0, "Comment", { fg = p.dark4, italic = true })
@@ -68,14 +69,12 @@ local function highlight(p)
   end
 end
 
-function M.toggle()
-  M.current_mode = (M.current_mode == "dark") and "light" or "dark"
-  M.apply()
-  print(("Gruvbox mode: %s"):format(M.current_mode))
+function Gruvbox.toggle()
+  Gruvbox.current_mode = (Gruvbox.current_mode == "dark") and "light" or "dark"
+  setup_highlights()
+  print(("Gruvbox mode: %s"):format(Gruvbox.current_mode))
 end
 
-function M.apply()
-  highlight(M.palette)
-end
+setup_highlights()
 
-return M
+return Gruvbox

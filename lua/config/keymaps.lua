@@ -12,7 +12,7 @@ vim.keymap.set("n", "<leader>q", "<cmd>bdelete<CR>", opts)
 
 vim.keymap.set("n", "<leader>t", function()
   local term_bufnr
-  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+  for _, bufnr in pairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_get_option(bufnr, "buftype") == "terminal" and vim.api.nvim_buf_is_loaded(bufnr) then
       term_bufnr = bufnr
       break
