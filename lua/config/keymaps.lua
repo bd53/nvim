@@ -1,9 +1,5 @@
 local opts = { noremap = true, silent = true }
 
-vim.keymap.set("n", "<C-p>", ":Telescope find_files<CR>", opts)
-vim.keymap.set("n", "<leader>fg", ":Telescope live_grep<CR>", opts)
-vim.keymap.set("n", "<leader>fb", ":Telescope buffers<CR>", opts)
-
 vim.keymap.set("n", "<C-s>", "<cmd>w<CR>", opts)
 vim.keymap.set("i", "<C-s>", "<Esc><cmd>w<CR>a", opts)
 
@@ -28,11 +24,6 @@ vim.keymap.set("n", "<leader>t", function()
   end
   vim.cmd("vsplit | terminal")
 end, opts)
-
-vim.keymap.set("n", "<leader>b", function()
-  vim.o.background = vim.o.background == "light" and "dark" or "light"
-  vim.cmd("hi NonText guifg=bg")
-end)
 
 vim.keymap.set("n", "<leader>cd", function()
   vim.ui.input({ prompt = "Change directory: " }, function(input)
