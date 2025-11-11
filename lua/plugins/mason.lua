@@ -20,10 +20,10 @@ return {
     "neovim/nvim-lspconfig",
     dependencies = { "williamboman/mason.nvim", "williamboman/mason-lspconfig.nvim" },
     config = function()
-      vim.lsp.config('rust_analyzer', {
-        root_markers = { 'Cargo.toml', '.git' },
+      vim.lsp.config("rust_analyzer", {
+        root_markers = { "Cargo.toml", ".git" },
         settings = {
-          ['rust-analyzer'] = {
+          ["rust-analyzer"] = {
             inlayHints = {
               enable = true,
               bindingModeHints = { enable = true },
@@ -37,11 +37,11 @@ return {
           },
         },
       })
-      vim.lsp.config('ts_ls', {
-        root_markers = { 'package.json', '.git' },
+      vim.lsp.config("ts_ls", {
+        root_markers = { "package.json", ".git" },
       })
-      vim.lsp.enable('rust_analyzer')
-      vim.lsp.enable('ts_ls')
+      vim.lsp.enable("rust_analyzer")
+      vim.lsp.enable("ts_ls")
     end
   },
 }
