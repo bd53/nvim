@@ -4,7 +4,7 @@ return {
     build = ":TSUpdate",
     config = function()
       require("nvim-treesitter.configs").setup({
-        ensure_installed = { "cpp", "lua", "rust", "tsx", "typescript", "vimdoc", "vim" },
+        ensure_installed = { "cpp", "lua", "rust", "tsx", "typescript", "vimdoc", "vim", "svelte" },
         highlight = {
           enable = true,
           disable = function(lang, buf)

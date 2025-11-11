@@ -11,7 +11,7 @@ return {
     dependencies = { "williamboman/mason.nvim" },
     config = function()
       require("mason-lspconfig").setup({
-        ensure_installed = { "clangd", "lua_ls", "rust_analyzer", "ts_ls" },
+        ensure_installed = { "clangd", "lua_ls", "rust_analyzer", "ts_ls", "svelte" },
         automatic_installation = true,
       })
     end
@@ -46,10 +46,14 @@ return {
       vim.lsp.config("ts_ls", {
         root_markers = { "package.json", ".git" },
       })
+      vim.lsp.config("svelte", {
+        root_markers = { "svelte.config.js", "package.json", ".git" },
+      })
       vim.lsp.enable("clangd")
       vim.lsp.enable("lua_ls")
       vim.lsp.enable("rust_analyzer")
       vim.lsp.enable("ts_ls")
+      vim.lsp.enable("svelte")
     end
   },
 }
