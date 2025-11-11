@@ -37,7 +37,7 @@ vim.keymap.set("n", "<leader>e", function()
   vim.cmd("Ex")
 end, opts)
 
-vim.keymap.set("n", "<leader>ih", function()
+vim.keymap.set("n", "<leader>h", function()
   local enabled = not vim.lsp.inlay_hint.is_enabled()
   vim.lsp.inlay_hint.enable(enabled)
   print(("Inlay hints: %s"):format(enabled and "enabled" or "disabled"))

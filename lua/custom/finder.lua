@@ -9,6 +9,8 @@ local state = {
   is_open = false
 }
 
+local ignored = { "node_modules", ".git", "dist" }
+
 local function createWindow()
   local width = math.floor(vim.o.columns * 0.7)
   local height = math.floor(vim.o.lines * 0.6)
@@ -29,22 +31,49 @@ local function createWindow()
   return buf, win
 end
 
-local function getFiles()
-  if fn.executable("find") == 1 then return fn.systemlist("find . -type f 2>/dev/null") end
-  local files = {}
-  local function recurse(path)
-    for _, name in ipairs(fn.readdir(path)) do
-      if name == "." or name == ".." then goto continue end
-      local full = path .. "/" .. name
-      if fn.isdirectory(full) == 1 then
-        recurse(full)
-      else
-        table.insert(files, full)
-      end
-      ::continue::
+local function isIgnored(path)
+  for _, pattern in pairs(ignored) do
+    if string.find(path, pattern) then
+      return true
     end
   end
-  recurse(".")
+  return false
+end
+
+local function getFiles()
+  if fn.executable("find") == 1 then
+    local exclude_args = {}
+    for _, pattern in pairs(ignored) do
+      table.insert(exclude_args, string.format("-path './%s' -prune -o", pattern))
+    end
+    local cmd = string.format("find . %s -type f -print 2>/dev/null", table.concat(exclude_args, " "))
+    return fn.systemlist(cmd)
+  end
+  local files = {}
+  local stack = { "." }
+  while #stack > 0 do
+    local path = table.remove(stack)
+    local ok, entries = pcall(fn.readdir, path)
+    if not ok or not entries then
+      goto continue
+    end
+    for _, name in pairs(entries) do
+      if name == "." or name == ".." then
+        goto continue_inner
+      end
+      local full = path .. "/" .. name
+      if isIgnored(full) then
+        goto continue_inner
+      end
+      if fn.isdirectory(full) == 1 then
+        table.insert(stack, full)
+        goto continue_inner
+      end
+      table.insert(files, full)
+      ::continue_inner::
+    end
+    ::continue::
+  end
   return files
 end
 
@@ -52,8 +81,8 @@ local function filterFiles(files, query)
   if not query or query == "" then return files end
   local q = query:lower()
   local out = {}
-  for _, f in ipairs(files) do
-    if string.find(f:lower(), q, 1, true) then table.insert(out, f) end
+  for _, f in pairs(files) do
+    if not isIgnored(f) and string.find(f:lower(), q, 1, true) then table.insert(out, f) end
   end
   return out
 end
