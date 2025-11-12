@@ -12,6 +12,10 @@ vim.keymap.set("n", "<Tab>", "<cmd>bnext<CR>", opts)
 vim.keymap.set("n", "<leader><Tab>", "<cmd>bprevious<CR>", opts)
 vim.keymap.set("n", "<leader>q", "<cmd>bdelete<CR>", opts)
 
+vim.keymap.set("n", "<leader>ch", function()
+    require("custom.commit").open()
+end, opts)
+
 vim.keymap.set("n", "<leader>t", function()
     local term_bufnr
     for _, bufnr in pairs(vim.api.nvim_list_bufs()) do
