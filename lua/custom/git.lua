@@ -302,4 +302,384 @@ function Git.push()
     do_push()
 end
 
+local changes_state = {
+    buf = nil,
+    win = nil,
+    preview_buf = nil,
+    preview_win = nil,
+    is_open = false,
+    files = {},
+}
+
+local status_labels = {
+    ["M "] = "Modified",
+    [" M"] = "Modified (unstaged)",
+    ["MM"] = "Modified (staged + unstaged)",
+    ["A "] = "Added",
+    ["D "] = "Deleted",
+    ["R "] = "Renamed",
+    ["C "] = "Copied",
+    ["U "] = "Updated",
+    ["??"] = "Untracked",
+}
+
+local function is_changes_valid_state()
+    return changes_state.is_open and changes_state.win and vim.api.nvim_win_is_valid(changes_state.win)
+end
+
+local function reset_changes_state()
+    changes_state.buf = nil
+    changes_state.win = nil
+    changes_state.preview_buf = nil
+    changes_state.preview_win = nil
+    changes_state.is_open = false
+    changes_state.files = {}
+end
+
+local function close_changes()
+    Window.safe_close_window(changes_state.win)
+    Window.safe_close_window(changes_state.preview_win)
+    Window.safe_delete_buffer(changes_state.buf)
+    Window.safe_delete_buffer(changes_state.preview_buf)
+    reset_changes_state()
+    vim.schedule(function()
+        pcall(vim.cmd, "redraw!")
+        pcall(vim.cmd, "mode")
+    end)
+end
+
+local function get_changed_files()
+    local cmd = "git status --porcelain"
+    local ok, output = pcall(vim.fn.systemlist, cmd)
+    if not ok or not output then return {} end
+    local files = {}
+    for _, line in ipairs(output) do
+        if line ~= "" then
+            local status = line:sub(1, 2)
+            local file = line:sub(4)
+            local label = status_labels[status] or "Unknown"
+            local display = string.format("[%s] %s", label, file)
+            table.insert(files, { status = status, file = file, display = display, label = label })
+        end
+    end
+    return files
+end
+
+local function get_file_diff(file)
+    local staged_cmd = string.format("git diff --cached -- '%s'", file)
+    local unstaged_cmd = string.format("git diff -- '%s'", file)
+    local ok_staged, staged_diff = pcall(vim.fn.systemlist, staged_cmd)
+    local ok_unstaged, unstaged_diff = pcall(vim.fn.systemlist, unstaged_cmd)
+    local lines = {}
+    if ok_staged and staged_diff and #staged_diff > 0 and staged_diff[1] ~= "" then
+        table.insert(lines, "=== STAGED CHANGES ===")
+        table.insert(lines, "")
+        for _, line in ipairs(staged_diff) do
+            table.insert(lines, line)
+        end
+    end
+    if ok_unstaged and unstaged_diff and #unstaged_diff > 0 and unstaged_diff[1] ~= "" then
+        if #lines > 0 then
+            table.insert(lines, "")
+            table.insert(lines, "")
+        end
+        table.insert(lines, "=== UNSTAGED CHANGES ===")
+        table.insert(lines, "")
+        for _, line in ipairs(unstaged_diff) do
+            table.insert(lines, line)
+        end
+    end
+    if #lines == 0 then
+        local show_cmd = string.format("git show HEAD:'%s' 2>/dev/null || cat '%s'", file, file)
+        local ok_show, content = pcall(vim.fn.systemlist, show_cmd)
+        if ok_show and content then
+            table.insert(lines, "=== NEW FILE ===")
+            table.insert(lines, "")
+            for _, line in ipairs(content) do
+                table.insert(lines, line)
+            end
+        end
+    end
+    if #lines == 0 then return { "No changes to display" } end
+    return lines
+end
+
+local function update_diff_preview()
+    if not changes_state.preview_buf or not vim.api.nvim_buf_is_valid(changes_state.preview_buf) then return end
+    if not changes_state.buf or not vim.api.nvim_buf_is_valid(changes_state.buf) then return end
+    local cursor = vim.api.nvim_win_get_cursor(changes_state.win)
+    local line_num = cursor[1]
+    if line_num < 1 or line_num > #changes_state.files then
+        vim.api.nvim_buf_set_lines(changes_state.preview_buf, 0, -1, false, { "-- Diff Preview --" })
+        return
+    end
+    local file_info = changes_state.files[line_num]
+    if not file_info or not file_info.file then
+        vim.api.nvim_buf_set_lines(changes_state.preview_buf, 0, -1, false, { "-- Diff Preview --" })
+        return
+    end
+    local diff_lines = get_file_diff(file_info.file)
+    vim.api.nvim_buf_set_lines(changes_state.preview_buf, 0, -1, false, diff_lines)
+    pcall(vim.api.nvim_buf_set_option, changes_state.preview_buf, "filetype", "diff")
+end
+
+local function setup_changes_keymaps(results_buf)
+    vim.keymap.set("n", "<CR>", function()
+        if not changes_state.win or not vim.api.nvim_win_is_valid(changes_state.win) then return end
+        local cursor = vim.api.nvim_win_get_cursor(changes_state.win)
+        local line_num = cursor[1]
+        if line_num >= 1 and line_num <= #changes_state.files then
+            local file_info = changes_state.files[line_num]
+            close_changes()
+            vim.defer_fn(function()
+                if file_info.file and file_info.file ~= "" then
+                    pcall(vim.cmd, "edit " .. vim.fn.fnameescape(file_info.file))
+                end
+            end, 8)
+        end
+    end, { buffer = results_buf, silent = true })
+    vim.keymap.set("n", "<Esc>", close_changes, { buffer = results_buf, silent = true })
+    vim.keymap.set("n", "q", close_changes, { buffer = results_buf, silent = true })
+    vim.keymap.set("n", "j", function()
+        local cursor = vim.api.nvim_win_get_cursor(changes_state.win)
+        if cursor[1] < #changes_state.files then
+            vim.api.nvim_win_set_cursor(changes_state.win, { cursor[1] + 1, 0 })
+            update_diff_preview()
+        end
+    end, { buffer = results_buf, silent = true })
+    vim.keymap.set("n", "k", function()
+        local cursor = vim.api.nvim_win_get_cursor(changes_state.win)
+        if cursor[1] > 1 then
+            vim.api.nvim_win_set_cursor(changes_state.win, { cursor[1] - 1, 0 })
+            update_diff_preview()
+        end
+    end, { buffer = results_buf, silent = true })
+end
+
+local function setup_changes_autocmds(results_buf)
+    vim.api.nvim_create_autocmd("WinClosed", {
+        buffer = results_buf,
+        once = true,
+        callback = function()
+            close_changes()
+        end
+    })
+    vim.api.nvim_create_autocmd("CursorMoved", { buffer = results_buf, callback = update_diff_preview })
+end
+
+function Git.changes()
+    if is_changes_valid_state() then
+        close_changes()
+        return
+    end
+    local files = get_changed_files()
+    if #files == 0 then
+        vim.notify("No changes to display.", vim.log.levels.INFO)
+        return
+    end
+    changes_state.files = files
+    local ok_layout, layout = pcall(Window.create_layout, {
+        width_ratio = 0.8,
+        height_ratio = 0.7,
+        preview_width_ratio = 0.6,
+        results_title = string.format(" Changed Files (%d) ", #files),
+        preview_title = " Diff Preview ",
+        input_title = "",
+        input_height = 1,
+    })
+    if not ok_layout then
+        print("Failed to create changes windows: " .. tostring(layout))
+        return
+    end
+    changes_state.buf = layout.results.buf
+    changes_state.win = layout.results.win
+    changes_state.preview_buf = layout.preview.buf
+    changes_state.preview_win = layout.preview.win
+    changes_state.is_open = true
+    Window.safe_close_window(layout.input.win)
+    Window.safe_delete_buffer(layout.input.buf)
+    local display_lines = {}
+    for _, file_info in ipairs(files) do
+        table.insert(display_lines, file_info.display)
+    end
+    vim.api.nvim_buf_set_lines(changes_state.buf, 0, -1, false, display_lines)
+    setup_changes_keymaps(changes_state.buf)
+    setup_changes_autocmds(changes_state.buf)
+    vim.api.nvim_set_current_win(changes_state.win)
+    if #files > 0 then
+        pcall(vim.api.nvim_win_set_cursor, changes_state.win, { 1, 0 })
+        update_diff_preview()
+    end
+end
+
+local history_state = {
+    buf = nil,
+    win = nil,
+    preview_buf = nil,
+    preview_win = nil,
+    is_open = false,
+    commits = {},
+}
+
+local function is_history_valid_state()
+    return history_state.is_open and history_state.win and vim.api.nvim_win_is_valid(history_state.win)
+end
+
+local function reset_history_state()
+    history_state.buf = nil
+    history_state.win = nil
+    history_state.preview_buf = nil
+    history_state.preview_win = nil
+    history_state.is_open = false
+    history_state.commits = {}
+end
+
+local function close_history()
+    Window.safe_close_window(history_state.win)
+    Window.safe_close_window(history_state.preview_win)
+    Window.safe_delete_buffer(history_state.buf)
+    Window.safe_delete_buffer(history_state.preview_buf)
+    reset_history_state()
+    vim.schedule(function()
+        pcall(vim.cmd, "redraw!")
+        pcall(vim.cmd, "mode")
+    end)
+end
+
+local function get_commit_history(limit)
+    limit = limit or 50
+    local cmd = string.format("git log --pretty=format:'%%h|%%an|%%ar|%%s' -%d", limit)
+    local ok, output = pcall(vim.fn.systemlist, cmd)
+    if not ok or not output then return {} end
+    local commits = {}
+    for _, line in ipairs(output) do
+        if line ~= "" then
+            local parts = vim.split(line, "|", { plain = true })
+            if #parts >= 4 then
+                local hash = parts[1]
+                local author = parts[2]
+                local time = parts[3]
+                local message = parts[4]
+                if #author > 20 then
+                    author = author:sub(1, 17) .. "..."
+                end
+                local display = string.format("%s  %s  %s  %s", hash, time, author, message)
+                table.insert(commits, { hash = hash, author = author, time = time, message = message, display = display })
+            end
+        end
+    end
+    return commits
+end
+
+local function get_commit_details(hash)
+    local cmd = string.format("git show --stat --pretty=format:'Commit:  %%H%%nAuthor:  %%an <%%ae>%%nDate:    %%ar (%%ad)%%n%%nMessage: %%s%%n%%b%%n' %s", hash)
+    local ok, output = pcall(vim.fn.systemlist, cmd)
+    if not ok or not output then return { "Failed to load commit details" } end
+    return output
+end
+
+local function update_commit_preview()
+    if not history_state.preview_buf or not vim.api.nvim_buf_is_valid(history_state.preview_buf) then return end
+    if not history_state.buf or not vim.api.nvim_buf_is_valid(history_state.buf) then return end
+    local cursor = vim.api.nvim_win_get_cursor(history_state.win)
+    local line_num = cursor[1]
+    if line_num < 1 or line_num > #history_state.commits then
+        vim.api.nvim_buf_set_lines(history_state.preview_buf, 0, -1, false, { "-- Commit Details --" })
+        return
+    end
+    local commit_info = history_state.commits[line_num]
+    if not commit_info or not commit_info.hash then
+        vim.api.nvim_buf_set_lines(history_state.preview_buf, 0, -1, false, { "-- Commit Details --" })
+        return
+    end
+    local details = get_commit_details(commit_info.hash)
+    vim.api.nvim_buf_set_lines(history_state.preview_buf, 0, -1, false, details)
+    pcall(vim.api.nvim_buf_set_option, history_state.preview_buf, "filetype", "git")
+end
+
+local function setup_history_keymaps(results_buf)
+    vim.keymap.set("n", "<CR>", function()
+        if not history_state.win or not vim.api.nvim_win_is_valid(history_state.win) then return end
+        local cursor = vim.api.nvim_win_get_cursor(history_state.win)
+        local line_num = cursor[1]
+        if line_num >= 1 and line_num <= #history_state.commits then
+            local commit_info = history_state.commits[line_num]
+            vim.fn.setreg("+", commit_info.hash)
+            vim.notify("Copied commit hash: " .. commit_info.hash, vim.log.levels.INFO)
+        end
+    end, { buffer = results_buf, silent = true })
+    vim.keymap.set("n", "<Esc>", close_history, { buffer = results_buf, silent = true })
+    vim.keymap.set("n", "q", close_history, { buffer = results_buf, silent = true })
+    vim.keymap.set("n", "j", function()
+        local cursor = vim.api.nvim_win_get_cursor(history_state.win)
+        if cursor[1] < #history_state.commits then
+            vim.api.nvim_win_set_cursor(history_state.win, { cursor[1] + 1, 0 })
+            update_commit_preview()
+        end
+    end, { buffer = results_buf, silent = true })
+    vim.keymap.set("n", "k", function()
+        local cursor = vim.api.nvim_win_get_cursor(history_state.win)
+        if cursor[1] > 1 then
+            vim.api.nvim_win_set_cursor(history_state.win, { cursor[1] - 1, 0 })
+            update_commit_preview()
+        end
+    end, { buffer = results_buf, silent = true })
+end
+
+local function setup_history_autocmds(results_buf)
+    vim.api.nvim_create_autocmd("WinClosed", {
+        buffer = results_buf,
+        once = true,
+        callback = function()
+            close_history()
+        end
+    })
+    vim.api.nvim_create_autocmd("CursorMoved", { buffer = results_buf, callback = update_commit_preview })
+end
+
+function Git.history()
+    if is_history_valid_state() then
+        close_history()
+        return
+    end
+    local commits = get_commit_history(50)
+    if #commits == 0 then
+        vim.notify("No commit history found.", vim.log.levels.INFO)
+        return
+    end
+    history_state.commits = commits
+    local ok_layout, layout = pcall(Window.create_layout, {
+        width_ratio = 0.85,
+        height_ratio = 0.75,
+        preview_width_ratio = 0.6,
+        results_title = string.format(" Commit History (last %d) ", #commits),
+        preview_title = " Commit Details ",
+        input_title = "",
+        input_height = 1,
+    })
+    if not ok_layout then
+        print("Failed to create history windows: " .. tostring(layout))
+        return
+    end
+    history_state.buf = layout.results.buf
+    history_state.win = layout.results.win
+    history_state.preview_buf = layout.preview.buf
+    history_state.preview_win = layout.preview.win
+    history_state.is_open = true
+    Window.safe_close_window(layout.input.win)
+    Window.safe_delete_buffer(layout.input.buf)
+    local display_lines = {}
+    for _, commit_info in ipairs(commits) do
+        table.insert(display_lines, commit_info.display)
+    end
+    vim.api.nvim_buf_set_lines(history_state.buf, 0, -1, false, display_lines)
+    setup_history_keymaps(history_state.buf)
+    setup_history_autocmds(history_state.buf)
+    vim.api.nvim_set_current_win(history_state.win)
+    if #commits > 0 then
+        pcall(vim.api.nvim_win_set_cursor, history_state.win, { 1, 0 })
+        update_commit_preview()
+    end
+end
+
 return Git
