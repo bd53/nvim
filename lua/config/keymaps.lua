@@ -8,11 +8,11 @@ vim.keymap.set("i", "<C-s>", "<Esc><cmd>w<CR>a", opts)
 vim.keymap.set("n", "<C-z>", "<cmd>undo<CR>", opts)
 vim.keymap.set("i", "<C-z>", "<C-o>u", opts)
 
-vim.keymap.set("n", "<Tab>", "<cmd>bnext<CR>", opts)
-vim.keymap.set("n", "<leader><Tab>", "<cmd>bprevious<CR>", opts)
+vim.keymap.set("n", "<C-Tab>", "<cmd>bnext<CR>", opts)
+vim.keymap.set("n", "<C-S-Tab>", "<cmd>bprevious<CR>", opts)
 vim.keymap.set("n", "<leader>q", "<cmd>bdelete<CR>", opts)
 
-vim.keymap.set("n", "<leader>b", function() require("custom.gruvbox").toggle() end, opts)
+vim.keymap.set("n", "<leader>cb", function() require("custom.gruvbox").toggle() end, opts)
 vim.keymap.set("n", "<C-p>", function() require("custom.finder").toggle() end, opts)
 vim.keymap.set("n", "<leader>/", function() require("custom.comments").toggle() end, opts)
 
@@ -40,11 +40,6 @@ vim.keymap.set("n", "<leader>cd", function()
         if not input then return end
         vim.cmd.cd(input)
     end)
-end, opts)
-
-vim.keymap.set("n", "<leader>e", function()
-    if vim.bo.filetype == "netrw" then return vim.cmd("bd") end
-    vim.cmd("Ex")
 end, opts)
 
 vim.keymap.set("n", "<leader>h", function()

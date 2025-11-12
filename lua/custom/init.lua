@@ -5,6 +5,7 @@ local modules = {
     "git",
     "status",
     "xp",
+    "window",
 }
 
 local loaded = {}

@@ -1,3 +1,4 @@
+local Window = require("custom.window")
 local Finder = {}
 
 local config = {
@@ -30,13 +31,6 @@ local function is_valid_state()
     return state.is_open and state.win and vim.api.nvim_win_is_valid(state.win)
 end
 
-local function safe_delete_buffer(buf)
-    if buf and vim.api.nvim_buf_is_valid(buf) then
-        pcall(vim.api.nvim_buf_set_option, buf, "modified", false)
-        pcall(vim.api.nvim_buf_delete, buf, { force = true })
-    end
-end
-
 local function reset_state()
     state.buf = nil
     state.win = nil
@@ -51,17 +45,12 @@ local function reset_state()
 end
 
 local function close_finder()
-    if state.win and vim.api.nvim_win_is_valid(state.win) then pcall(vim.api.nvim_win_close, state.win, true) end
-    if state.preview_win and vim.api.nvim_win_is_valid(state.preview_win) then
-        pcall(vim.api.nvim_win_close,
-            state.preview_win, true)
-    end
-    if state.input_win and vim.api.nvim_win_is_valid(state.input_win) then
-        pcall(vim.api.nvim_win_close, state.input_win, true)
-    end
-    safe_delete_buffer(state.buf)
-    safe_delete_buffer(state.preview_buf)
-    safe_delete_buffer(state.input_buf)
+    Window.safe_close_window(state.win)
+    Window.safe_close_window(state.preview_win)
+    Window.safe_close_window(state.input_win)
+    Window.safe_delete_buffer(state.buf)
+    Window.safe_delete_buffer(state.preview_buf)
+    Window.safe_delete_buffer(state.input_buf)
     reset_state()
     vim.schedule(function()
         pcall(vim.cmd, "redraw!")
@@ -142,94 +131,6 @@ local function update_preview()
     else
         vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, { "-- Cannot preview file --" })
     end
-end
-
-local function create_results_buffer()
-    local buf = vim.api.nvim_create_buf(false, true)
-    pcall(vim.api.nvim_buf_set_option, buf, "buftype", "nofile")
-    pcall(vim.api.nvim_buf_set_option, buf, "bufhidden", "wipe")
-    pcall(vim.api.nvim_buf_set_option, buf, "swapfile", false)
-    pcall(vim.api.nvim_buf_set_option, buf, "buflisted", false)
-    return buf
-end
-
-local function create_preview_buffer()
-    local buf = vim.api.nvim_create_buf(false, true)
-    pcall(vim.api.nvim_buf_set_option, buf, "buftype", "nofile")
-    pcall(vim.api.nvim_buf_set_option, buf, "bufhidden", "wipe")
-    pcall(vim.api.nvim_buf_set_option, buf, "swapfile", false)
-    pcall(vim.api.nvim_buf_set_option, buf, "buflisted", false)
-    return buf
-end
-
-local function create_input_buffer()
-    local buf = vim.api.nvim_create_buf(false, true)
-    pcall(vim.api.nvim_buf_set_option, buf, "buftype", "nofile")
-    pcall(vim.api.nvim_buf_set_option, buf, "bufhidden", "wipe")
-    pcall(vim.api.nvim_buf_set_option, buf, "swapfile", false)
-    pcall(vim.api.nvim_buf_set_option, buf, "buflisted", false)
-    return buf
-end
-
-local function create_windows(results_buf, preview_buf, input_buf)
-    local total_width = math.floor(vim.o.columns * config.window.width_ratio)
-    local total_height = math.floor(vim.o.lines * config.window.height_ratio)
-    local row = math.floor((vim.o.lines - total_height) / 2)
-    local col = math.floor((vim.o.columns - total_width) / 2)
-    if total_width < 40 or total_height < 10 then
-        safe_delete_buffer(results_buf)
-        safe_delete_buffer(preview_buf)
-        safe_delete_buffer(input_buf)
-    end
-    local results_width = math.floor(total_width * (1 - config.preview.width_ratio)) - 1
-    local preview_width = total_width - results_width - 1
-    local input_height = 3
-    local results_height = total_height - input_height - 1
-    if results_width < 10 or preview_width < 10 or results_height < 5 then
-        safe_delete_buffer(results_buf)
-        safe_delete_buffer(preview_buf)
-        safe_delete_buffer(input_buf)
-    end
-    local results_win = vim.api.nvim_open_win(results_buf, false, {
-        relative = "editor",
-        width = results_width,
-        height = results_height,
-        row = row,
-        col = col,
-        border = "single",
-        style = "minimal",
-        title = " Results ",
-        title_pos = "center"
-    })
-    pcall(vim.api.nvim_win_set_option, results_win, "winblend", 0)
-    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = results_win })
-    local preview_win = vim.api.nvim_open_win(preview_buf, false, {
-        relative = "editor",
-        width = preview_width,
-        height = results_height,
-        row = row,
-        col = col + results_width + 1,
-        border = "single",
-        style = "minimal",
-        title = " Preview ",
-        title_pos = "center"
-    })
-    pcall(vim.api.nvim_win_set_option, preview_win, "winblend", 0)
-    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = preview_win })
-    local input_win = vim.api.nvim_open_win(input_buf, false, {
-        relative = "editor",
-        width = total_width,
-        height = input_height,
-        row = row + results_height + 1,
-        col = col,
-        border = "single",
-        style = "minimal",
-        title = "",
-        title_pos = "center"
-    })
-    pcall(vim.api.nvim_win_set_option, input_win, "winblend", 0)
-    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = input_win })
-    return results_win, preview_win, input_win
 end
 
 local function refresh_results()
@@ -338,31 +239,33 @@ local function open_finder()
     state.files = files
     state.filtered_files = vim.deepcopy(files)
     state.query = ""
-    local results_buf = create_results_buffer()
-    local preview_buf = create_preview_buffer()
-    local input_buf = create_input_buffer()
-    local ok_win, results_win, preview_win, input_win = pcall(create_windows, results_buf, preview_buf, input_buf)
-    if not ok_win then
-        safe_delete_buffer(results_buf)
-        safe_delete_buffer(preview_buf)
-        safe_delete_buffer(input_buf)
-        print("Failed to create finder windows: " .. tostring(results_win))
+    local ok_layout, layout = pcall(Window.create_layout, {
+        width_ratio = config.window.width_ratio,
+        height_ratio = config.window.height_ratio,
+        preview_width_ratio = config.preview.width_ratio,
+        results_title = " Results ",
+        preview_title = " Preview ",
+        input_title = "",
+        input_height = 3,
+    })
+    if not ok_layout then
+        print("Failed to create finder windows: " .. tostring(layout))
         return
     end
-    state.buf = results_buf
-    state.win = results_win
-    state.preview_buf = preview_buf
-    state.preview_win = preview_win
-    state.input_buf = input_buf
-    state.input_win = input_win
+    state.buf = layout.results.buf
+    state.win = layout.results.win
+    state.preview_buf = layout.preview.buf
+    state.preview_win = layout.preview.win
+    state.input_buf = layout.input.buf
+    state.input_win = layout.input.win
     state.is_open = true
-    vim.api.nvim_buf_set_lines(results_buf, 0, -1, false, state.filtered_files)
-    vim.api.nvim_buf_set_lines(input_buf, 0, -1, false, { "> ", string.format("%d / %d", #files, #files) })
-    setup_keymaps(results_buf, input_buf)
-    setup_autocmds(results_buf)
-    vim.api.nvim_set_current_win(results_win)
+    vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, state.filtered_files)
+    vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { "> ", string.format("%d / %d", #files, #files) })
+    setup_keymaps(state.buf, state.input_buf)
+    setup_autocmds(state.buf)
+    vim.api.nvim_set_current_win(state.win)
     if #state.filtered_files > 0 then
-        pcall(vim.api.nvim_win_set_cursor, results_win, { 1, 0 })
+        pcall(vim.api.nvim_win_set_cursor, state.win, { 1, 0 })
         update_preview()
     end
 end
