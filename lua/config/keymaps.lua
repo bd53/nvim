@@ -1,5 +1,7 @@
 local opts = { noremap = true, silent = true }
 
+vim.cmd('cnoreabbrev q q!')
+
 vim.keymap.set("n", "<C-s>", "<cmd>w<CR>", opts)
 vim.keymap.set("i", "<C-s>", "<Esc><cmd>w<CR>a", opts)
 
