@@ -13,34 +13,34 @@ vim.keymap.set("n", "<leader><Tab>", "<cmd>bprevious<CR>", opts)
 vim.keymap.set("n", "<leader>q", "<cmd>bdelete<CR>", opts)
 
 vim.keymap.set("n", "<leader>t", function()
-  local term_bufnr
-  for _, bufnr in pairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_get_option(bufnr, "buftype") == "terminal" and vim.api.nvim_buf_is_loaded(bufnr) then
-      term_bufnr = bufnr
-      break
+    local term_bufnr
+    for _, bufnr in pairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_get_option(bufnr, "buftype") == "terminal" and vim.api.nvim_buf_is_loaded(bufnr) then
+            term_bufnr = bufnr
+            break
+        end
     end
-  end
-  if term_bufnr then
-    vim.api.nvim_buf_delete(term_bufnr, { force = true })
-    return
-  end
-  vim.cmd("vsplit | terminal")
+    if term_bufnr then
+        vim.api.nvim_buf_delete(term_bufnr, { force = true })
+        return
+    end
+    vim.cmd("vsplit | terminal")
 end, opts)
 
 vim.keymap.set("n", "<leader>cd", function()
-  vim.ui.input({ prompt = "Change directory: " }, function(input)
-    if not input then return end
-    vim.cmd.cd(input)
-  end)
+    vim.ui.input({ prompt = "Change directory: " }, function(input)
+        if not input then return end
+        vim.cmd.cd(input)
+    end)
 end, opts)
 
 vim.keymap.set("n", "<leader>e", function()
-  if vim.bo.filetype == "netrw" then return vim.cmd("bd") end
-  vim.cmd("Ex")
+    if vim.bo.filetype == "netrw" then return vim.cmd("bd") end
+    vim.cmd("Ex")
 end, opts)
 
 vim.keymap.set("n", "<leader>h", function()
-  local enabled = not vim.lsp.inlay_hint.is_enabled()
-  vim.lsp.inlay_hint.enable(enabled)
-  print(("Inlay hints: %s"):format(enabled and "enabled" or "disabled"))
+    local enabled = not vim.lsp.inlay_hint.is_enabled()
+    vim.lsp.inlay_hint.enable(enabled)
+    print(("Inlay hints: %s"):format(enabled and "enabled" or "disabled"))
 end, opts)

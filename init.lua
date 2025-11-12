@@ -31,7 +31,7 @@ vim.opt.updatetime = 300
 
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
-  vim.fn.system({"git", "clone", "--filter=blob:none", "https://github.com/folke/lazy.nvim.git", "--branch=stable", lazypath})
+    vim.fn.system({ "git", "clone", "--filter=blob:none", "https://github.com/folke/lazy.nvim.git", "--branch=stable", lazypath })
 end
 vim.opt.rtp:prepend(lazypath)
 
@@ -40,17 +40,20 @@ require("custom")
 require("lazy").setup("plugins")
 
 local function reload_custom()
-  for module_name, _ in pairs(package.loaded) do
-    if module_name:match("^custom") or module_name:match("^config") then
-      package.loaded[module_name] = nil
+    for module_name, _ in pairs(package.loaded) do
+        if module_name:match("^custom") or module_name:match("^config") then
+            package.loaded[module_name] = nil
+        end
     end
-  end
-  local ok, err = pcall(function()
-    require("config.keymaps")
-    require("custom")
-  end)
-  if not ok then vim.notify("Reload failed: " .. tostring(err), vim.log.levels.ERROR) return end
-  vim.notify("Modules reloaded.", vim.log.levels.INFO)
+    local ok, err = pcall(function()
+        require("config.keymaps")
+        require("custom")
+    end)
+    if not ok then
+        vim.notify("Reload failed: " .. tostring(err), vim.log.levels.ERROR)
+        return
+    end
+    vim.notify("Modules reloaded.", vim.log.levels.INFO)
 end
 
 vim.keymap.set("n", "<leader>r", reload_custom)
