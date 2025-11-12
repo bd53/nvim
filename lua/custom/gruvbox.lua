@@ -46,17 +46,7 @@ Gruvbox.current_mode = "dark"
 local function setup_highlights()
   local p = Gruvbox.palette
   local set = vim.api.nvim_set_hl
-  if Gruvbox.current_mode == "dark" then
-    vim.cmd("set background=dark")
-    set(0, "Normal", { fg = p.light1, bg = p.dark0 })
-    set(0, "Comment", { fg = p.dark4, italic = true })
-    set(0, "Keyword", { fg = p.bright_purple })
-    set(0, "Function", { fg = p.bright_yellow })
-    set(0, "String", { fg = p.bright_green })
-    set(0, "Identifier", { fg = p.bright_blue })
-    set(0, "Type", { fg = p.bright_aqua })
-    set(0, "Number", { fg = p.bright_orange })
-  else
+  if Gruvbox.current_mode ~= "dark" then
     vim.cmd("set background=light")
     set(0, "Normal", { fg = p.dark1, bg = p.light0 })
     set(0, "Comment", { fg = p.light4, italic = true })
@@ -66,7 +56,17 @@ local function setup_highlights()
     set(0, "Identifier", { fg = p.neutral_blue })
     set(0, "Type", { fg = p.neutral_aqua })
     set(0, "Number", { fg = p.neutral_orange })
+    return
   end
+  vim.cmd("set background=dark")
+  set(0, "Normal", { fg = p.light1, bg = p.dark0 })
+  set(0, "Comment", { fg = p.dark4, italic = true })
+  set(0, "Keyword", { fg = p.bright_purple })
+  set(0, "Function", { fg = p.bright_yellow })
+  set(0, "String", { fg = p.bright_green })
+  set(0, "Identifier", { fg = p.bright_blue })
+  set(0, "Type", { fg = p.bright_aqua })
+  set(0, "Number", { fg = p.bright_orange })
 end
 
 function Gruvbox.toggle()

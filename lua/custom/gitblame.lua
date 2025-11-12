@@ -36,17 +36,25 @@ local function get_blame(line)
     local minutes = math.floor(diff / 60)
     if days > 365 then
       relative_time = string.format("%dy ago", math.floor(days / 365))
-    elseif days > 30 then
-      relative_time = string.format("%dmo ago", math.floor(days / 30))
-    elseif days > 0 then
-      relative_time = string.format("%dd ago", days)
-    elseif hours > 0 then
-      relative_time = string.format("%dh ago", hours)
-    elseif minutes > 0 then
-      relative_time = string.format("%dm ago", minutes)
-    else
-      relative_time = "just now"
+      return { commit = commit:sub(1, 7), author = author, time = relative_time, summary = summary }
     end
+    if days > 30 then
+      relative_time = string.format("%dmo ago", math.floor(days / 30))
+      return { commit = commit:sub(1, 7), author = author, time = relative_time, summary = summary }
+    end
+    if days > 0 then
+      relative_time = string.format("%dd ago", days)
+      return { commit = commit:sub(1, 7), author = author, time = relative_time, summary = summary }
+    end
+    if hours > 0 then
+      relative_time = string.format("%dh ago", hours)
+      return { commit = commit:sub(1, 7), author = author, time = relative_time, summary = summary }
+    end
+    if minutes > 0 then
+      relative_time = string.format("%dm ago", minutes)
+      return { commit = commit:sub(1, 7), author = author, time = relative_time, summary = summary }
+    end
+    relative_time = "just now"
   end
   return { commit = commit:sub(1, 7), author = author, time = relative_time, summary = summary }
 end

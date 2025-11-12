@@ -16,21 +16,20 @@ local function get_colors()
       lsp_fg = p.bright_blue,
       bg = p.dark0,
     }
-  else
-    return {
-      mode_bg = p.neutral_aqua,
-      mode_fg = p.light0,
-      branch_fg = p.neutral_yellow,
-      filepath_fg = p.neutral_blue,
-      filetype_fg = p.neutral_aqua,
-      position_fg = p.dark2,
-      encoding_fg = p.neutral_aqua,
-      indent_fg = p.neutral_purple,
-      session_fg = p.neutral_yellow,
-      lsp_fg = p.neutral_blue,
-      bg = p.light0,
-    }
   end
+  return {
+    mode_bg = p.neutral_aqua,
+    mode_fg = p.light0,
+    branch_fg = p.neutral_yellow,
+    filepath_fg = p.neutral_blue,
+    filetype_fg = p.neutral_aqua,
+    position_fg = p.dark2,
+    encoding_fg = p.neutral_aqua,
+    indent_fg = p.neutral_purple,
+    session_fg = p.neutral_yellow,
+    lsp_fg = p.neutral_blue,
+    bg = p.light0,
+  }
 end
 
 local colors = get_colors()
@@ -117,13 +116,9 @@ end
 local function get_file_size()
   local size = vim.fn.getfsize(vim.fn.expand("%"))
   if size <= 0 then return "" end
-  if size < 1024 then
-    return string.format("%dB", size)
-  elseif size < 1024 * 1024 then
-    return string.format("%.1fKB", size / 1024)
-  else
-    return string.format("%.1fMB", size / (1024 * 1024))
-  end
+  if size < 1024 then return string.format("%dB", size) end
+  if size < 1024 * 1024 then return string.format("%.1fKB", size / 1024) end
+  return string.format("%.1fMB", size / (1024 * 1024))
 end
 
 local function get_lsp_status()
@@ -147,11 +142,8 @@ end
 local function get_indent_info()
   local expandtab = vim.bo.expandtab
   local shiftwidth = vim.bo.shiftwidth
-  if expandtab then
-    return string.format("Spaces:%d", shiftwidth)
-  else
-    return string.format("Tabs:%d", shiftwidth)
-  end
+  if expandtab then return string.format("Spaces:%d", shiftwidth) end
+  return string.format("Tabs:%d", shiftwidth)
 end
 
 local function get_session_info()

@@ -49,11 +49,8 @@ local function reload_custom()
     require("config.keymaps")
     require("custom")
   end)
-  if ok then
-    vim.notify("Modules reloaded.", vim.log.levels.INFO)
-  else
-    vim.notify("Reload failed: " .. tostring(err), vim.log.levels.ERROR)
-  end
+  if not ok then vim.notify("Reload failed: " .. tostring(err), vim.log.levels.ERROR) return end
+  vim.notify("Modules reloaded.", vim.log.levels.INFO)
 end
 
 vim.keymap.set("n", "<leader>r", reload_custom)
