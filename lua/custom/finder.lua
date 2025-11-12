@@ -1,21 +1,21 @@
 local Finder = {}
 
-local Config = {
-  ignored_patterns = { "node_modules", ".git", "dist" },
+local config = {
+  ignored_patterns = { ".git", "target", "node_modules", "dist" },
   window = { width_ratio = 0.7, height_ratio = 0.6 },
 }
 
-local State = { buf = nil, win = nil, is_open = false }
+local state = { buf = nil, win = nil, is_open = false }
 
 local function is_ignored(path)
-  for _, pattern in pairs(Config.ignored_patterns) do
+  for _, pattern in pairs(config.ignored_patterns) do
     if path:find(pattern) then return true end
   end
   return false
 end
 
 local function is_valid_state()
-  return State.is_open and State.win and vim.api.nvim_win_is_valid(State.win) and State.buf and vim.api.nvim_buf_is_valid(State.buf)
+  return state.is_open and state.win and vim.api.nvim_win_is_valid(state.win) and state.buf and vim.api.nvim_buf_is_valid(state.buf)
 end
 
 local function safe_delete_buffer(buf)
@@ -26,14 +26,14 @@ local function safe_delete_buffer(buf)
 end
 
 local function reset_state()
-  State.buf = nil
-  State.win = nil
-  State.is_open = false
+  state.buf = nil
+  state.win = nil
+  state.is_open = false
 end
 
 local function close_finder()
-  if State.win and vim.api.nvim_win_is_valid(State.win) then pcall(vim.api.nvim_win_close, State.win, true) end
-  safe_delete_buffer(State.buf)
+  if state.win and vim.api.nvim_win_is_valid(state.win) then pcall(vim.api.nvim_win_close, state.win, true) end
+  safe_delete_buffer(state.buf)
   reset_state()
   vim.schedule(function()
     pcall(vim.cmd, "redraw!")
@@ -44,7 +44,7 @@ end
 local function get_all_files()
   if vim.fn.executable("find") == 1 then
     local exclude_args = {}
-    for _, pattern in pairs(Config.ignored_patterns) do
+    for _, pattern in pairs(config.ignored_patterns) do
       table.insert(exclude_args, string.format("-path './%s' -prune -o", pattern))
     end
     local cmd = string.format("find . %s -type f -print 2>/dev/null", table.concat(exclude_args, " "))
@@ -101,8 +101,8 @@ local function create_buffer()
 end
 
 local function create_window(buf)
-  local width = math.floor(vim.o.columns * Config.window.width_ratio)
-  local height = math.floor(vim.o.lines * Config.window.height_ratio)
+  local width = math.floor(vim.o.columns * config.window.width_ratio)
+  local height = math.floor(vim.o.lines * config.window.height_ratio)
   local row = math.floor((vim.o.lines - height) / 2)
   local col = math.floor((vim.o.columns - width) / 2)
   local ok, win = pcall(vim.api.nvim_open_win, buf, true, { relative = "editor", width = width, height = height, row = row, col = col, border = "single", style = "minimal", title = " Finder ", title_pos = "center" })
@@ -149,9 +149,9 @@ local function open_finder()
   if not ok or not files then return end
   local buf = create_buffer()
   local win = create_window(buf)
-  State.buf = buf
-  State.win = win
-  State.is_open = true
+  state.buf = buf
+  state.win = win
+  state.is_open = true
   setup_prompt(buf, files)
   setup_keymaps(buf)
   setup_autocmds(buf)

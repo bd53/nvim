@@ -1,10 +1,6 @@
 local XP = {}
 
-local DATA_FILE = vim.fn.stdpath("config") .. "/data.json"
-local SAVE_COOLDOWN = 5
-local TYPE_COOLDOWN = 1
-local CHARS_PER_XP = 20
-local LEVEL_MULTIPLIER = 1.15
+local data_file = vim.fn.stdpath("config") .. "/data.json"
 
 local ACHIEVEMENTS = {
   first_save = { name = "First Steps", desc = "Save your first file" },
@@ -51,7 +47,7 @@ local xp_data = create_default_data()
 local save_timer = nil
 
 local function load_data()
-  local file = io.open(DATA_FILE, "r")
+  local file = io.open(data_file, "r")
   if not file then return end
   local content = file:read("*a")
   file:close()
@@ -71,7 +67,7 @@ local function save_data()
   save_timer = vim.loop.new_timer()
   save_timer:start(100, 0, vim.schedule_wrap(function()
     local ok, err = pcall(function()
-      local file = io.open(DATA_FILE, "w")
+      local file = io.open(data_file, "w")
       if not file then return end
       file:write(vim.fn.json_encode(xp_data))
       file:close()
@@ -89,7 +85,7 @@ end
 
 local function save_data_sync()
   local ok, err = pcall(function()
-    local file = io.open(DATA_FILE, "w")
+    local file = io.open(data_file, "w")
     if file then
       file:write(vim.fn.json_encode(xp_data))
       file:close()
@@ -143,7 +139,7 @@ end
 function add_xp(amount, skip_cooldown)
   if not skip_cooldown then
     local now = os.time()
-    if now - (xp_data.session.last_type_time or 0) < TYPE_COOLDOWN then return end
+    if now - (xp_data.session.last_type_time or 0) < 1 then return end
     xp_data.session.last_type_time = now
   end
   xp_data.xp = xp_data.xp + amount
@@ -152,7 +148,7 @@ function add_xp(amount, skip_cooldown)
   if xp_data.xp >= xp_data.xp_to_next then
     xp_data.xp = xp_data.xp - xp_data.xp_to_next
     xp_data.level = xp_data.level + 1
-    xp_data.xp_to_next = math.floor(xp_data.xp_to_next * LEVEL_MULTIPLIER)
+    xp_data.xp_to_next = math.floor(xp_data.xp_to_next * 1.15)
     notify(string.format("LEVEL UP. You are now level %d.", xp_data.level), vim.log.levels.WARN)
     check_achievements()
   end
@@ -223,7 +219,7 @@ end
 local function on_file_save()
   vim.schedule(function()
     local now = os.time()
-    if now - xp_data.session.last_save_time < SAVE_COOLDOWN then return end
+    if now - xp_data.session.last_save_time < 5 then return end
     xp_data.session.last_save_time = now
     xp_data.stats.files_saved = xp_data.stats.files_saved + 1
     xp_data.session.saves_this_session = xp_data.session.saves_this_session + 1
@@ -239,7 +235,7 @@ local function setup_autocommands()
     callback = function()
       char_count = char_count + 1
       xp_data.stats.chars_typed = xp_data.stats.chars_typed + 1
-      if char_count >= CHARS_PER_XP then
+      if char_count >= 20 then
         add_xp(5)
         char_count = 0
       end

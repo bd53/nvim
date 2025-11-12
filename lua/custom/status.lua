@@ -1,5 +1,7 @@
 local Gruvbox = require("custom.gruvbox")
 
+local state = { mode = "N", git_branch = "", git_last_check = 0 }
+
 local function get_colors()
   local p = Gruvbox.palette
   if Gruvbox.current_mode == "dark" then
@@ -34,12 +36,6 @@ end
 
 local colors = get_colors()
 
-local State = {
-  mode = "N",
-  git_branch = "",
-  git_last_check = 0,
-}
-
 local function get_mode()
   local modes = {
     n = "NORMAL",
@@ -52,8 +48,8 @@ local function get_mode()
     t = "TERMINAL",
   }
   local mode = vim.fn.mode()
-  State.mode = modes[mode] or mode:upper()
-  return State.mode
+  state.mode = modes[mode] or mode:upper()
+  return state.mode
 end
 
 local function get_filepath()
@@ -67,8 +63,8 @@ end
 
 local function get_git_info()
   local now = vim.loop.now()
-  if now - State.git_last_check < 2000 and State.git_branch ~= "" then return State.git_branch end
-  State.git_last_check = now
+  if now - state.git_last_check < 2000 and state.git_branch ~= "" then return state.git_branch end
+  state.git_last_check = now
   local branch_ok, branch = pcall(function()
     local handle = io.popen("git rev-parse --abbrev-ref HEAD 2>/dev/null")
     if handle then
@@ -78,8 +74,8 @@ local function get_git_info()
     end
     return ""
   end)
-  State.git_branch = (branch_ok and branch ~= "") and branch or ""
-  return State.git_branch
+  state.git_branch = (branch_ok and branch ~= "") and branch or ""
+  return state.git_branch
 end
 
 local function get_filetype()
@@ -282,7 +278,7 @@ vim.o.statusline = "%!v:lua.statusline_render()"
 
 vim.api.nvim_create_autocmd({"BufEnter", "BufWritePost", "CursorMoved", "CursorMovedI", "ModeChanged"}, {
   callback = function()
-    if vim.v.event.event == "BufEnter" then State.git_last_check = 0 end
+    if vim.v.event.event == "BufEnter" then state.git_last_check = 0 end
     vim.cmd("redrawstatus")
   end,
 })
