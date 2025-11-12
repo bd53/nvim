@@ -12,12 +12,17 @@ vim.keymap.set("n", "<Tab>", "<cmd>bnext<CR>", opts)
 vim.keymap.set("n", "<leader><Tab>", "<cmd>bprevious<CR>", opts)
 vim.keymap.set("n", "<leader>q", "<cmd>bdelete<CR>", opts)
 
-vim.keymap.set("n", "<leader>gc", require("custom.commit").open, opts)
-vim.keymap.set("n", "<leader>gp", require("custom.commit").push, opts)
+vim.keymap.set("n", "<leader>b", function() require("custom.gruvbox").toggle() end, opts)
+vim.keymap.set("n", "<C-p>", function() require("custom.finder").toggle() end, opts)
+vim.keymap.set("n", "<leader>/", function() require("custom.comments").toggle() end, opts)
+
+vim.keymap.set("n", "<leader>gb", function() require("custom.git").toggle() end, opts)
+vim.keymap.set("n", "<leader>gc", function() require("custom.git").commit() end, opts)
+vim.keymap.set("n", "<leader>gp", function() require("custom.git").push() end, opts)
 
 vim.keymap.set("n", "<leader>t", function()
     local term_bufnr
-    for _, bufnr in pairs(vim.api.nvim_list_bufs()) do
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_get_option(bufnr, "buftype") == "terminal" and vim.api.nvim_buf_is_loaded(bufnr) then
             term_bufnr = bufnr
             break

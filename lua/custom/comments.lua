@@ -16,7 +16,7 @@ local Config = {
 }
 
 local function setup_highlights()
-    for _, kw in pairs(Config.keywords) do
+    for _, kw in ipairs(Config.keywords) do
         local group_name = "CommentKeyword" .. kw.word:gsub("@", "")
         vim.cmd(string.format("highlight %s guifg=%s gui=bold", group_name, kw.color))
     end
@@ -25,7 +25,7 @@ end
 local function highlight_keywords()
     local ft = vim.bo.filetype
     local comment_str = Config.comment_strings[ft] or "//"
-    for _, kw in pairs(Config.keywords) do
+    for _, kw in ipairs(Config.keywords) do
         local hl_group = "CommentKeyword" .. kw.word:gsub("@", "")
         local pattern = vim.pesc(comment_str) .. ".*" .. vim.pesc(kw.word)
         vim.fn.matchadd(hl_group, pattern)

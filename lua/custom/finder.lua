@@ -20,7 +20,7 @@ local state = {
 }
 
 local function is_ignored(path)
-    for _, pattern in pairs(config.ignored_patterns) do
+    for _, pattern in ipairs(config.ignored_patterns) do
         if path:find(pattern) then return true end
     end
     return false
@@ -72,7 +72,7 @@ end
 local function get_all_files()
     if vim.fn.executable("find") == 1 then
         local exclude_args = {}
-        for _, pattern in pairs(config.ignored_patterns) do
+        for _, pattern in ipairs(config.ignored_patterns) do
             table.insert(exclude_args, string.format("-path './%s' -prune -o", pattern))
         end
         local cmd = string.format("find . %s -type f -print 2>/dev/null", table.concat(exclude_args, " "))
@@ -86,7 +86,7 @@ local function get_all_files()
         if not ok or not entries then
             goto continue_path
         end
-        for _, name in pairs(entries) do
+        for _, name in ipairs(entries) do
             if name == "." or name == ".." then
                 goto continue_entry
             end
@@ -110,7 +110,7 @@ local function filter_files(files, query)
     if not query or query == "" then return files end
     local normalized_query = query:lower()
     local filtered = {}
-    for _, file in pairs(files) do
+    for _, file in ipairs(files) do
         if not is_ignored(file) and file:lower():find(normalized_query, 1, true) then
             table.insert(filtered, file)
         end
