@@ -38,3 +38,23 @@ vim.opt.rtp:prepend(lazypath)
 require("config.keymaps")
 require("custom")
 require("lazy").setup("plugins")
+
+local function reload_custom()
+  for module_name, _ in pairs(package.loaded) do
+    if module_name:match("^custom") or module_name:match("^config") then
+      package.loaded[module_name] = nil
+    end
+  end
+  local ok, err = pcall(function()
+    require("config.keymaps")
+    require("custom")
+  end)
+  if ok then
+    vim.notify("Modules reloaded.", vim.log.levels.INFO)
+  else
+    vim.notify("Reload failed: " .. tostring(err), vim.log.levels.ERROR)
+  end
+end
+
+vim.keymap.set("n", "<leader>r", reload_custom)
+vim.api.nvim_create_user_command("ReloadConfig", reload_custom, {})
