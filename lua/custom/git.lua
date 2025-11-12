@@ -151,6 +151,106 @@ local function create_float(title, width, height)
     return buf, win
 end
 
+local function create_input_float(title, default_text, callback, parent_win)
+    local width = 60
+    local height = 3
+    local buf = vim.api.nvim_create_buf(false, true)
+    local win = vim.api.nvim_open_win(buf, true, {
+        relative = "editor",
+        width = width,
+        height = height,
+        col = (vim.o.columns - width) / 2,
+        row = (vim.o.lines - height) / 2,
+        style = "minimal",
+        border = "rounded",
+        title = title,
+        title_pos = "center",
+    })
+    vim.bo[buf].buftype = "nofile"
+    vim.bo[buf].modifiable = true
+    if default_text and default_text ~= "" then
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { default_text })
+    end
+    vim.cmd("startinsert")
+    local function close_and_callback()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        local text = lines[1] or ""
+        vim.api.nvim_win_close(win, true)
+        if parent_win and vim.api.nvim_win_is_valid(parent_win) then
+            vim.api.nvim_set_current_win(parent_win)
+            vim.cmd("stopinsert")
+        end
+        callback(text)
+    end
+    vim.keymap.set({ "n", "i" }, "<CR>", close_and_callback, { buffer = buf, silent = true })
+    vim.keymap.set({ "n", "i" }, "<Esc>", function()
+        vim.api.nvim_win_close(win, true)
+        if parent_win and vim.api.nvim_win_is_valid(parent_win) then
+            vim.api.nvim_set_current_win(parent_win)
+            vim.cmd("stopinsert")
+        end
+        callback(nil)
+    end, { buffer = buf, silent = true })
+end
+
+local function create_select_float(title, items, callback, parent_win)
+    local width = 40
+    local height = #items + 2
+    local buf = vim.api.nvim_create_buf(false, true)
+    local win = vim.api.nvim_open_win(buf, true, {
+        relative = "editor",
+        width = width,
+        height = height,
+        col = (vim.o.columns - width) / 2,
+        row = (vim.o.lines - height) / 2,
+        style = "minimal",
+        border = "rounded",
+        title = title,
+        title_pos = "center",
+    })
+    vim.bo[buf].buftype = "nofile"
+    vim.bo[buf].modifiable = true
+    local display_lines = {}
+    for i, item in ipairs(items) do
+        table.insert(display_lines, string.format("%d. %s", i, item))
+    end
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, display_lines)
+    vim.bo[buf].modifiable = false
+    local function select_item()
+        local line = vim.api.nvim_win_get_cursor(win)[1]
+        local selected = items[line]
+        vim.api.nvim_win_close(win, true)
+        if parent_win and vim.api.nvim_win_is_valid(parent_win) then
+            vim.api.nvim_set_current_win(parent_win)
+        end
+        callback(selected)
+    end
+    vim.keymap.set("n", "<CR>", select_item, { buffer = buf, silent = true })
+    vim.keymap.set("n", "<Esc>", function()
+        vim.api.nvim_win_close(win, true)
+        if parent_win and vim.api.nvim_win_is_valid(parent_win) then
+            vim.api.nvim_set_current_win(parent_win)
+        end
+        callback(nil)
+    end, { buffer = buf, silent = true })
+    vim.keymap.set("n", "q", function()
+        vim.api.nvim_win_close(win, true)
+        if parent_win and vim.api.nvim_win_is_valid(parent_win) then
+            vim.api.nvim_set_current_win(parent_win)
+        end
+        callback(nil)
+    end, { buffer = buf, silent = true })
+    for i = 1, #items do
+        vim.keymap.set("n", tostring(i), function()
+            vim.api.nvim_win_close(win, true)
+            if parent_win and vim.api.nvim_win_is_valid(parent_win) then
+                vim.api.nvim_set_current_win(parent_win)
+            end
+            callback(items[i])
+        end, { buffer = buf, silent = true })
+    end
+end
+
 local function update_display(buf, win)
     vim.bo[buf].modifiable = true
     local lines = {
@@ -159,14 +259,16 @@ local function update_display(buf, win)
         string.format("│ Scope: %-57s │", commit_state.scope),
         string.format("│ Message: %-55s │", commit_state.message),
         "╰─────────────────────────────────────────────────────────────────╯",
-        "",
         "  [1] Select Type    [2] Edit Scope    [3] Edit Message",
     }
+    local commit_scope = commit_state.scope ~= "" and ("(" .. commit_state.scope .. ")") or ""
+    local preview = string.format("%s%s: %s", commit_state.type, commit_scope, commit_state.message)
+    if commit_state.type ~= "" or commit_state.message ~= "" then
+        table.insert(lines, "")
+        table.insert(lines, "  Preview: " .. preview)
+    end
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.bo[buf].modifiable = false
-    local commit_scope = commit_state.scope ~= "" and ("(" .. commit_state.scope .. ")") or ""
-    local preview = string.format("Preview: %s%s: %s", commit_state.type, commit_scope, commit_state.message)
-    print(preview)
 end
 
 local function do_push()
@@ -177,21 +279,19 @@ local function do_push()
         on_stdout = function(_, data)
             if data and data[1] ~= "" then
                 local output = table.concat(data, "\n")
-                print(output)
+                vim.notify(output, vim.log.levels.INFO)
             end
         end,
         on_stderr = function(_, data)
             if data and data[1] ~= "" then
                 local output = table.concat(data, "\n")
-                print(output)
+                vim.notify(output, vim.log.levels.WARN)
             end
         end,
         on_exit = function(_, code)
             if code == 0 then
-                print("Push successful!")
-                vim.notify("Push successful.", vim.log.levels.INFO)
+                vim.notify("Push successful!", vim.log.levels.INFO)
             else
-                print("Push failed")
                 vim.notify("Push failed - check git output", vim.log.levels.ERROR)
             end
         end,
@@ -210,8 +310,7 @@ local function do_commit(win, should_push)
     local commit_scope = commit_state.scope ~= "" and ("(" .. commit_state.scope .. ")") or ""
     local commit_text = string.format("%s%s: %s", commit_state.type, commit_scope, commit_state.message)
     vim.api.nvim_win_close(win, true)
-    print("Staging and committing: " .. commit_text)
-    vim.notify("Staging changes...", vim.log.levels.INFO)
+    vim.notify("Staging and committing: " .. commit_text, vim.log.levels.INFO)
     vim.fn.jobstart({ "git", "add", "-A" }, {
         on_exit = function(_, stage_code)
             if stage_code == 0 then
@@ -221,20 +320,17 @@ local function do_commit(win, should_push)
                     on_stdout = function(_, data)
                         if data and data[1] ~= "" then
                             local output = table.concat(data, "\n")
-                            print(output)
                             vim.notify(output, vim.log.levels.INFO)
                         end
                     end,
                     on_stderr = function(_, data)
                         if data and data[1] ~= "" then
                             local output = table.concat(data, "\n")
-                            print(output)
                             vim.notify(output, vim.log.levels.ERROR)
                         end
                     end,
                     on_exit = function(_, code)
                         if code == 0 then
-                            print("Commit successful!")
                             vim.notify("Commit successful!", vim.log.levels.INFO)
                             commit_state.type = ""
                             commit_state.scope = ""
@@ -243,7 +339,6 @@ local function do_commit(win, should_push)
                                 do_push()
                             end
                         else
-                            print("Commit failed")
                             vim.notify("Commit failed", vim.log.levels.ERROR)
                         end
                     end,
@@ -257,44 +352,39 @@ end
 
 local function setup_keymaps(buf, win)
     vim.keymap.set("n", "1", function()
-        vim.ui.select(commit_types, {
-            prompt = "Select commit type:",
-            format_item = function(item) return "  " .. item end,
-        }, function(choice)
+        create_select_float("Select Commit Type", commit_types, function(choice)
             if choice then
                 commit_state.type = choice
-                print("Selected type: " .. choice)
                 update_display(buf, win)
             end
-        end)
+        end, win)
     end, { buffer = buf, silent = true })
     vim.keymap.set("n", "2", function()
-        vim.ui.input({
-            prompt = "Scope (optional): ",
-            default = commit_state.scope
-        }, function(input)
+        create_input_float("Scope (optional)", commit_state.scope, function(input)
             if input ~= nil then
                 commit_state.scope = input
-                print("Scope set to: " .. (input ~= "" and input or "(empty)"))
                 update_display(buf, win)
             end
-        end)
+        end, win)
     end, { buffer = buf, silent = true })
     vim.keymap.set("n", "3", function()
-        vim.ui.input({
-            prompt = "Commit message: ",
-            default = commit_state.message
-        }, function(input)
-            if input then
+        create_input_float("Commit Message", commit_state.message, function(input)
+            if input and input ~= "" then
                 commit_state.message = input
-                print("Message set to: " .. input)
                 update_display(buf, win)
             end
-        end)
+        end, win)
+    end, { buffer = buf, silent = true })
+    vim.keymap.set("n", "<Esc>", function()
+        vim.api.nvim_win_close(win, true)
+        vim.notify("Commit cancelled", vim.log.levels.WARN)
+    end, { buffer = buf, silent = true })
+    vim.keymap.set("n", "q", function()
+        vim.api.nvim_win_close(win, true)
+        vim.notify("Commit cancelled", vim.log.levels.WARN)
     end, { buffer = buf, silent = true })
     vim.keymap.set("n", "<C-c>", function()
         vim.api.nvim_win_close(win, true)
-        print("Commit cancelled")
         vim.notify("Commit cancelled", vim.log.levels.WARN)
     end, { buffer = buf, silent = true })
     vim.keymap.set("n", "<CR>", function()
@@ -306,8 +396,7 @@ function Git.commit()
     commit_state.type = ""
     commit_state.scope = ""
     commit_state.message = ""
-    print("\nGit Commit")
-    local buf, win = create_float("Git Commit", 70, 11)
+    local buf, win = create_float("Git Commit", 70, 14)
     update_display(buf, win)
     setup_keymaps(buf, win)
 end
