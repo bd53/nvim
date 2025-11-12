@@ -2,6 +2,7 @@ local modules = {
   { name = "finder", key = "<C-p>" },
   { name = "gruvbox", key = "<leader>b" },
   { name = "comments", key = "<leader>/" },
+  { name = "gitblame", key = "<leader>gb" }
 }
 
 local loaded = {}
