@@ -1,13 +1,39 @@
-local colors = {
-  mode_bg = "#98c379",
-  mode_fg = "#282c34",
-  branch_fg = "#e5c07b",
-  filepath_fg = "#61afef",
-  filetype_fg = "#56b6c2",
-  position_fg = "#abb2bf",
-  encoding_fg = "#56b6c2",
-  bg = "#21252b",
-}
+local Gruvbox = require("custom.gruvbox")
+
+local function get_colors()
+  local p = Gruvbox.palette
+  if Gruvbox.current_mode == "dark" then
+    return {
+      mode_bg = p.bright_aqua,
+      mode_fg = p.dark0,
+      branch_fg = p.bright_yellow,
+      filepath_fg = p.bright_blue,
+      filetype_fg = p.bright_aqua,
+      position_fg = p.light2,
+      encoding_fg = p.bright_aqua,
+      indent_fg = p.bright_purple,
+      session_fg = p.bright_yellow,
+      lsp_fg = p.bright_blue,
+      bg = p.dark0,
+    }
+  else
+    return {
+      mode_bg = p.neutral_aqua,
+      mode_fg = p.light0,
+      branch_fg = p.neutral_yellow,
+      filepath_fg = p.neutral_blue,
+      filetype_fg = p.neutral_aqua,
+      position_fg = p.dark2,
+      encoding_fg = p.neutral_aqua,
+      indent_fg = p.neutral_purple,
+      session_fg = p.neutral_yellow,
+      lsp_fg = p.neutral_blue,
+      bg = p.light0,
+    }
+  end
+end
+
+local colors = get_colors()
 
 local State = {
   mode = "N",
@@ -222,32 +248,42 @@ local function render()
   return statusline .. "%#StatuslineNormal#"
 end
 
+local function setup_highlights()
+  vim.cmd(string.format([[
+    hi StatuslineNormal guibg=%s guifg=%s |
+    hi StatuslineMode guibg=%s guifg=%s gui=bold |
+    hi StatuslineBranch guibg=%s guifg=%s |
+    hi StatuslineFilepath guibg=%s guifg=%s |
+    hi StatuslineFiletype guibg=%s guifg=%s |
+    hi StatuslineEncoding guibg=%s guifg=%s |
+    hi StatuslinePosition guibg=%s guifg=%s |
+    hi StatuslineIndent guibg=%s guifg=%s |
+    hi StatuslineSession guibg=%s guifg=%s gui=bold |
+    hi StatuslineLSP guibg=%s guifg=%s
+  ]],
+    colors.bg, colors.position_fg,
+    colors.mode_bg, colors.mode_fg,
+    colors.bg, colors.branch_fg,
+    colors.bg, colors.filepath_fg,
+    colors.bg, colors.filetype_fg,
+    colors.bg, colors.encoding_fg,
+    colors.bg, colors.position_fg,
+    colors.bg, colors.indent_fg,
+    colors.bg, colors.session_fg,
+    colors.bg, colors.lsp_fg
+  ))
+end
+
+function _G.statusline_update_colors()
+  colors = get_colors()
+  setup_highlights()
+  vim.cmd("redrawstatus")
+end
+
 vim.o.laststatus = 2
 vim.o.showmode = false
 
-vim.cmd(string.format([[
-  hi StatuslineNormal guibg=%s guifg=%s |
-  hi StatuslineMode guibg=%s guifg=%s gui=bold |
-  hi StatuslineBranch guibg=%s guifg=%s |
-  hi StatuslineFilepath guibg=%s guifg=%s |
-  hi StatuslineFiletype guibg=%s guifg=%s |
-  hi StatuslineEncoding guibg=%s guifg=%s |
-  hi StatuslinePosition guibg=%s guifg=%s |
-  hi StatuslineIndent guibg=%s guifg=#c678dd |
-  hi StatuslineSession guibg=%s guifg=#e5c07b gui=bold |
-  hi StatuslineLSP guibg=%s guifg=#61afef
-]],
-  colors.bg, colors.position_fg,
-  colors.mode_bg, colors.mode_fg,
-  colors.bg, colors.branch_fg,
-  colors.bg, colors.filepath_fg,
-  colors.bg, colors.filetype_fg,
-  colors.bg, colors.encoding_fg,
-  colors.bg, colors.position_fg,
-  colors.bg,
-  colors.bg,
-  colors.bg
-))
+setup_highlights()
 
 _G.statusline_render = render
 vim.o.statusline = "%!v:lua.statusline_render()"

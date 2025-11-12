@@ -72,6 +72,9 @@ end
 function Gruvbox.toggle()
   Gruvbox.current_mode = (Gruvbox.current_mode == "dark") and "light" or "dark"
   setup_highlights()
+  if _G.statusline_update_colors then
+    _G.statusline_update_colors()
+  end
   print(("Gruvbox mode: %s"):format(Gruvbox.current_mode))
 end
 
