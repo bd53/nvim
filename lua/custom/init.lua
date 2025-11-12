@@ -2,7 +2,8 @@ local modules = {
   { name = "finder", key = "<C-p>" },
   { name = "gruvbox", key = "<leader>b" },
   { name = "comments", key = "<leader>/" },
-  { name = "gitblame", key = "<leader>gb" }
+  { name = "gitblame", key = "<leader>gb" },
+  { name = "status", key = nil }
 }
 
 local loaded = {}
@@ -15,6 +16,6 @@ for _, module in pairs(modules) do
   end
   loaded[module.name] = mod
   if type(mod.setup) == "function" then mod.setup() end
-  if mod.toggle then vim.keymap.set("n", module.key, mod.toggle) end
+  if mod.toggle and module.key then vim.keymap.set("n", module.key, mod.toggle) end
   ::continue_module::
 end
