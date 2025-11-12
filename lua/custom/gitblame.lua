@@ -16,15 +16,15 @@ local function get_blame(line)
   local commit = output[1]:match("^(%w+)")
   if commit == "0000000000000000000000000000000000000000" then return nil end
   local author, timestamp, summary
-  for _, l in ipairs(output) do
-    if l:match("^author ") then
-      author = l:gsub("^author ", "")
+  for _, l in pairs(output) do
+    if l:sub(1, 7) == "author " then
+      author = l:sub(8)
     end
-    if l:match("^author-time ") then
-      timestamp = tonumber(l:gsub("^author-time ", ""))
+    if l:sub(1, 12) == "author-time " then
+      timestamp = tonumber(l:sub(13))
     end
-    if l:match("^summary ") then
-      summary = l:gsub("^summary ", "")
+    if l:sub(1, 8) == "summary " then
+      summary = l:sub(9)
     end
   end
   local relative_time = ""
