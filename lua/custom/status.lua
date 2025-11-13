@@ -9,10 +9,8 @@ local function get_colors()
             mode_bg = p.bright_aqua,
             mode_fg = p.dark0,
             branch_fg = p.bright_yellow,
-            filepath_fg = p.bright_blue,
             filetype_fg = p.bright_aqua,
             position_fg = p.light2,
-            encoding_fg = p.bright_aqua,
             indent_fg = p.bright_purple,
             session_fg = p.bright_yellow,
             lsp_fg = p.bright_blue,
@@ -23,10 +21,8 @@ local function get_colors()
         mode_bg = p.neutral_aqua,
         mode_fg = p.light0,
         branch_fg = p.neutral_yellow,
-        filepath_fg = p.neutral_blue,
         filetype_fg = p.neutral_aqua,
         position_fg = p.dark2,
-        encoding_fg = p.neutral_aqua,
         indent_fg = p.neutral_purple,
         session_fg = p.neutral_yellow,
         lsp_fg = p.neutral_blue,
@@ -36,17 +32,18 @@ end
 
 local colors = get_colors()
 
+local modes = {
+    n = "NORMAL",
+    i = "INSERT",
+    v = "VISUAL",
+    V = "V-LINE",
+    ["\22"] = "V-BLOCK",
+    R = "REPLACE",
+    c = "COMMAND",
+    t = "TERMINAL",
+}
+
 local function get_mode()
-    local modes = {
-        n = "NORMAL",
-        i = "INSERT",
-        v = "VISUAL",
-        V = "V-LINE",
-        ["\22"] = "V-BLOCK",
-        R = "REPLACE",
-        c = "COMMAND",
-        t = "TERMINAL",
-    }
     local mode = vim.fn.mode()
     state.mode = modes[mode] or mode:upper()
     return state.mode
@@ -127,14 +124,6 @@ local function get_lsp_status()
     return table.concat(names, ",")
 end
 
-local function get_total_lines()
-    return string.format("%dL", vim.fn.line("$"))
-end
-
-local function get_buffer_number()
-    return string.format("B%d", vim.fn.bufnr())
-end
-
 local function get_indent_info()
     local expandtab = vim.bo.expandtab
     local shiftwidth = vim.bo.shiftwidth
@@ -148,118 +137,79 @@ local function get_session_info()
     return string.format(" %s", project_name)
 end
 
-local function mode_component()
-    local mode = get_mode()
-    return string.format("%%#StatuslineMode# %s %%*%%#StatuslineNormal# ", mode)
+local function component(highlight, content, prefix)
+    if content == "" then return "" end
+    prefix = prefix or " "
+    return string.format("%%#%s#%s%s %%*", highlight, prefix, content)
 end
 
-local function branch_component()
-    local branch = get_git_info()
-    if branch == "" then return "" end
-    return string.format("%%#StatuslineBranch# %s %%*", branch)
-end
-
-local function filepath_component()
-    local path = get_filepath()
-    return string.format("%%#StatuslineFilepath# %s %%*", path)
-end
-
-local function filetype_component()
-    local ft = get_filetype()
-    return string.format("%%#StatuslineFiletype# %s %%*", ft)
-end
-
-local function encoding_component()
-    local enc = get_encoding()
-    return string.format("%%#StatuslineEncoding# %s %%*", enc)
-end
-
-local function word_count_component()
-    local wc = get_word_count()
-    if wc == "" then return "" end
-    return string.format("%%#StatuslinePosition# %s %%*", wc)
-end
-
-local function file_size_component()
-    local size = get_file_size()
-    if size == "" then return "" end
-    return string.format("%%#StatuslinePosition# %s %%*", size)
-end
-
-local function total_lines_component()
-    return string.format("%%#StatuslinePosition# %s %%*", get_total_lines())
-end
-
-local function buffer_number_component()
-    return string.format("%%#StatuslinePosition# %s %%*", get_buffer_number())
-end
-
-local function lsp_component()
-    local lsp = get_lsp_status()
-    if lsp == "" then return "" end
-    return string.format("%%#StatuslineLSP#  %s %%*", lsp)
-end
-
-local function indent_component()
-    return string.format("%%#StatuslineIndent# %s %%*", get_indent_info())
-end
-
-local function session_component()
-    return string.format("%%#StatuslineSession#%s %%*", get_session_info())
-end
-
-local function progress_component()
-    local prog = get_progress()
-    return string.format("%%#StatuslinePosition# %s %%*", prog)
-end
-
-local function location_component()
-    local loc = get_location()
-    return string.format("%%#StatuslinePosition# %s %%*", loc)
-end
+local components = {
+    mode = function()
+        return component("StatuslineMode", get_mode(), " ")
+    end,
+    encoding = function()
+        return component("StatuslineEncoding", get_encoding())
+    end,
+    indent = function()
+        return component("StatuslineIndent", get_indent_info())
+    end,
+    session = function()
+        return component("StatuslineSession", get_session_info(), "")
+    end,
+    filepath = function()
+        return component("StatuslineFilepath", get_filepath())
+    end,
+    branch = function()
+        return component("StatuslineBranch", get_git_info(), " ")
+    end,
+    lsp = function()
+        local lsp = get_lsp_status()
+        return lsp ~= "" and component("StatuslineLSP", lsp, "  ") or ""
+    end,
+    word_count = function()
+        return component("StatuslinePosition", get_word_count())
+    end,
+    filetype = function()
+        return component("StatuslineFiletype", get_filetype())
+    end,
+    file_size = function()
+        return component("StatuslinePosition", get_file_size())
+    end,
+    total_lines = function()
+        return component("StatuslinePosition", string.format("%dL", vim.fn.line("$")))
+    end,
+    progress = function()
+        return component("StatuslinePosition", get_progress())
+    end,
+    location = function()
+        return component("StatuslinePosition", get_location())
+    end,
+}
 
 local function render()
-    local statusline = mode_component()
-        .. indent_component()
-        .. session_component()
-        .. filepath_component()
-        .. branch_component()
-        .. lsp_component()
-        .. word_count_component()
-        .. filetype_component()
-        .. file_size_component()
-        .. total_lines_component()
-        .. buffer_number_component()
-        .. encoding_component()
-        .. progress_component()
-        .. location_component()
+    local statusline = components.mode() .. components.encoding() .. components.indent() .. components.session() .. components.branch() .. components.filepath() .. components.lsp() .. components.word_count() .. components.filetype() .. components.file_size() .. components.total_lines() .. components.progress() .. components.location()
     return statusline .. "%#StatuslineNormal#"
 end
 
+local highlight_groups = {
+    { name = "StatuslineNormal", fg = "position_fg" },
+    { name = "StatuslineMode", bg = "mode_bg", fg = "mode_fg", bold = true },
+    { name = "StatuslineEncoding", fg = "indent_fg" },
+    { name = "StatuslineIndent", fg = "indent_fg" },
+    { name = "StatuslineSession", fg = "session_fg" },
+    { name = "StatuslineBranch", fg = "branch_fg" },
+    { name = "StatuslineFilepath", fg = "branch_fg" },
+    { name = "StatuslineLSP", fg = "lsp_fg" },
+    { name = "StatuslineFiletype", fg = "lsp_fg" },
+    { name = "StatuslinePosition", fg = "filetype_fg" },
+}
+
 local function setup_highlights()
-    vim.cmd(string.format([[
-    hi StatuslineNormal guibg=%s guifg=%s |
-    hi StatuslineMode guibg=%s guifg=%s gui=bold |
-    hi StatuslineBranch guibg=%s guifg=%s |
-    hi StatuslineFilepath guibg=%s guifg=%s |
-    hi StatuslineFiletype guibg=%s guifg=%s |
-    hi StatuslineEncoding guibg=%s guifg=%s |
-    hi StatuslinePosition guibg=%s guifg=%s |
-    hi StatuslineIndent guibg=%s guifg=%s |
-    hi StatuslineSession guibg=%s guifg=%s gui=bold |
-    hi StatuslineLSP guibg=%s guifg=%s
-  ]],
-        colors.bg, colors.position_fg,
-        colors.mode_bg, colors.mode_fg,
-        colors.bg, colors.branch_fg,
-        colors.bg, colors.filepath_fg,
-        colors.bg, colors.filetype_fg,
-        colors.bg, colors.encoding_fg,
-        colors.bg, colors.position_fg,
-        colors.bg, colors.indent_fg,
-        colors.bg, colors.session_fg,
-        colors.bg, colors.lsp_fg
-    ))
+    for _, hl in ipairs(highlight_groups) do
+        local cmd = string.format("hi %s guibg=%s guifg=%s", hl.name, colors[hl.bg or "bg"], colors[hl.fg])
+        if hl.bold then cmd = cmd .. " gui=bold" end
+        vim.cmd(cmd)
+    end
 end
 
 function _G.statusline_update_colors()
