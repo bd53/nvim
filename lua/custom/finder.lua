@@ -239,7 +239,7 @@ local function open_finder()
     state.files = files
     state.filtered_files = vim.deepcopy(files)
     state.query = ""
-    local ok_layout, layout = pcall(Window.create_layout, {
+    local ok_layout, layout = pcall(Window.create_split_two, {
         width_ratio = config.window.width_ratio,
         height_ratio = config.window.height_ratio,
         preview_width_ratio = config.preview.width_ratio,

@@ -513,7 +513,7 @@ function Git.changes()
     end
     local files = get_changed_files()
     changes_state.files = files
-    local ok_layout, layout = pcall(Window.create_layout, {
+    local ok_layout, layout = pcall(Window.create_split_two, {
         width_ratio = 0.8,
         height_ratio = 0.7,
         preview_width_ratio = 0.6,
@@ -778,7 +778,7 @@ function Git.history()
     end
     local commits = get_commit_history(50)
     history_state.commits = commits
-    local ok_layout, layout = pcall(create_three_panel_layout, {
+    local ok_layout, layout = pcall(Window.create_split_three, {
         width_ratio = 0.95,
         height_ratio = 0.80,
         left_width_ratio = 0.30,
