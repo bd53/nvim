@@ -161,9 +161,9 @@ local function setup_keymaps(buf, win)
         ["2"] = function() Window.create_input({ title = " Scope (optional) ", default_text = commit_state.scope, callback = function(input) if input ~= nil then commit_state.scope = input; update_display(buf) end end, parent_win = win }) end,
         ["3"] = function() Window.create_input({ title = " Message ", default_text = commit_state.message, callback = function(input) if input and input ~= "" then commit_state.message = input; update_display(buf) end end, parent_win = win }) end,
         ["4"] = function() Window.create_input({ title = " Description (optional) ", default_text = commit_state.description, callback = function(input) if input ~= nil then commit_state.description = input; update_display(buf) end end, parent_win = win }) end,
-        ["<Esc>"] = function() Window.safe_close_window(state.win); vim.notify("Commit cancelled.", vim.log.levels.WARN) end,
-        ["q"] = function() Window.safe_close_window(state.win); vim.notify("Commit cancelled.", vim.log.levels.WARN) end,
-        ["<C-c>"] = function() Window.safe_close_window(state.win); vim.notify("Commit cancelled.", vim.log.levels.WARN) end,
+        ["<Esc>"] = function() Window.safe_close_window(win); vim.notify("Commit cancelled.", vim.log.levels.WARN) end,
+        ["q"] = function() Window.safe_close_window(win); vim.notify("Commit cancelled.", vim.log.levels.WARN) end,
+        ["<C-c>"] = function() Window.safe_close_window(win); vim.notify("Commit cancelled.", vim.log.levels.WARN) end,
         ["<CR>"] = function() do_commit(win, false) end,
     }
     for key, fn in pairs(mappings) do
