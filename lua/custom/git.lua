@@ -130,23 +130,45 @@ local commit_state = {
     type = "",
     scope = "",
     message = "",
+    description = "",
 }
 
 local function update_display(buf, win)
     vim.bo[buf].modifiable = true
+    local desc_display = ""
+    if commit_state.description ~= "" then
+        local desc_first_line = commit_state.description:gsub("\n.*", "")
+        if #desc_first_line > 51 then
+            desc_display = desc_first_line:sub(1, 48) .. "..."
+        else
+            desc_display = desc_first_line
+        end
+    end
     local lines = {
         "╭─────────────────────────────────────────────────────────────────╮",
         string.format("│ Type: %-58s │", commit_state.type),
         string.format("│ Scope: %-57s │", commit_state.scope),
         string.format("│ Message: %-55s │", commit_state.message),
+        string.format("│ Description: %-51s │", desc_display),
         "╰─────────────────────────────────────────────────────────────────╯",
         "  [1] Select Type    [2] Edit Scope    [3] Edit Message",
+        "  [4] Edit Description",
     }
     local commit_scope = commit_state.scope ~= "" and ("(" .. commit_state.scope .. ")") or ""
     local preview = string.format("%s%s: %s", commit_state.type, commit_scope, commit_state.message)
+    if commit_state.description ~= "" then
+        preview = preview .. "\n\n" .. commit_state.description
+    end
     if commit_state.type ~= "" or commit_state.message ~= "" then
         table.insert(lines, "")
-        table.insert(lines, "  Preview: " .. preview)
+        local preview_lines = vim.split(preview, "\n", { plain = true })
+        for i, line in ipairs(preview_lines) do
+            if i == 1 then
+                table.insert(lines, "  Preview: " .. line)
+            else
+                table.insert(lines, "           " .. line)
+            end
+        end
     end
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.bo[buf].modifiable = false
@@ -190,8 +212,11 @@ local function do_commit(win, should_push)
     end
     local commit_scope = commit_state.scope ~= "" and ("(" .. commit_state.scope .. ")") or ""
     local commit_text = string.format("%s%s: %s", commit_state.type, commit_scope, commit_state.message)
+    if commit_state.description ~= "" then
+        commit_text = commit_text .. "\n\n" .. commit_state.description
+    end
     vim.api.nvim_win_close(win, true)
-    vim.notify("Staging and committing: " .. commit_text, vim.log.levels.INFO)
+    vim.notify("Staging and committing: " .. commit_text:gsub("\n.*", "..."), vim.log.levels.INFO)
     vim.fn.jobstart({ "git", "add", "-A" }, {
         on_exit = function(_, stage_code)
             if stage_code == 0 then
@@ -216,6 +241,7 @@ local function do_commit(win, should_push)
                             commit_state.type = ""
                             commit_state.scope = ""
                             commit_state.message = ""
+                            commit_state.description = ""
                             if should_push then
                                 do_push()
                             end
@@ -271,6 +297,19 @@ local function setup_keymaps(buf, win)
             parent_win = win,
         })
     end, { buffer = buf, silent = true })
+    vim.keymap.set("n", "4", function()
+        Window.create_input({
+            title = " Description (optional) ",
+            default_text = commit_state.description,
+            callback = function(input)
+                if input ~= nil then
+                    commit_state.description = input
+                    update_display(buf, win)
+                end
+            end,
+            parent_win = win,
+        })
+    end, { buffer = buf, silent = true })
     vim.keymap.set("n", "<Esc>", function()
         vim.api.nvim_win_close(win, true)
         vim.notify("Commit cancelled.", vim.log.levels.WARN)
@@ -292,7 +331,8 @@ function Git.commit()
     commit_state.type = ""
     commit_state.scope = ""
     commit_state.message = ""
-    local buf, win = Window.create_float({ title = " Commit ", width = 70, height = 14, border = "rounded" })
+    commit_state.description = ""
+    local buf, win = Window.create_float({ title = " Commit ", width = 70, height = 16, border = "rounded" })
     vim.bo[buf].modifiable = false
     update_display(buf, win)
     setup_keymaps(buf, win)
