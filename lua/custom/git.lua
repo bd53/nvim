@@ -124,7 +124,7 @@ function Git.toggle()
     print("Git blame: disabled")
 end
 
-local commit_types = { "feat", "fix", "docs", "style", "refactor", "perf", "test", "chore" }
+local commit_types = { "feat", "tweak", "fix", "docs", "style", "refactor", "perf", "test", "chore" }
 
 local commit_state = {
     type = "",
@@ -151,8 +151,7 @@ local function update_display(buf, win)
         string.format("│ Message: %-55s │", commit_state.message),
         string.format("│ Description: %-51s │", desc_display),
         "╰─────────────────────────────────────────────────────────────────╯",
-        "  [1] Select Type    [2] Edit Scope    [3] Edit Message",
-        "  [4] Edit Description",
+        "  [1] Type [2] Scope [3] Message [4] Description" ,
     }
     local commit_scope = commit_state.scope ~= "" and ("(" .. commit_state.scope .. ")") or ""
     local preview = string.format("%s%s: %s", commit_state.type, commit_scope, commit_state.message)
