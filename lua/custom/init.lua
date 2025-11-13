@@ -4,7 +4,6 @@ local modules = {
     "comments",
     "git",
     "status",
-    "xp",
     "window",
 }
 
