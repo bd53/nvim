@@ -400,7 +400,7 @@ local function get_file_diff(file)
             end
         end
     end
-    if #lines == 0 then return { "No changes to display" } end
+    if #lines == 0 then return { "No changes to display." } end
     return lines
 end
 
@@ -410,12 +410,12 @@ local function update_diff_preview()
     local cursor = vim.api.nvim_win_get_cursor(changes_state.win)
     local line_num = cursor[1]
     if line_num < 1 or line_num > #changes_state.files then
-        vim.api.nvim_buf_set_lines(changes_state.preview_buf, 0, -1, false, { "-- Diff Preview --" })
+        vim.api.nvim_buf_set_lines(changes_state.preview_buf, 0, -1, false, { "No changes to display." })
         return
     end
     local file_info = changes_state.files[line_num]
     if not file_info or not file_info.file then
-        vim.api.nvim_buf_set_lines(changes_state.preview_buf, 0, -1, false, { "-- Diff Preview --" })
+        vim.api.nvim_buf_set_lines(changes_state.preview_buf, 0, -1, false, { "No changes to display." })
         return
     end
     local diff_lines = get_file_diff(file_info.file)
@@ -515,8 +515,10 @@ end
 local history_state = {
     buf = nil,
     win = nil,
-    preview_buf = nil,
-    preview_win = nil,
+    details_buf = nil,
+    details_win = nil,
+    diff_buf = nil,
+    diff_win = nil,
     is_open = false,
     commits = {},
 }
@@ -528,17 +530,21 @@ end
 local function reset_history_state()
     history_state.buf = nil
     history_state.win = nil
-    history_state.preview_buf = nil
-    history_state.preview_win = nil
+    history_state.details_buf = nil
+    history_state.details_win = nil
+    history_state.diff_buf = nil
+    history_state.diff_win = nil
     history_state.is_open = false
     history_state.commits = {}
 end
 
 local function close_history()
     Window.safe_close_window(history_state.win)
-    Window.safe_close_window(history_state.preview_win)
+    Window.safe_close_window(history_state.details_win)
+    Window.safe_close_window(history_state.diff_win)
     Window.safe_delete_buffer(history_state.buf)
-    Window.safe_delete_buffer(history_state.preview_buf)
+    Window.safe_delete_buffer(history_state.details_buf)
+    Window.safe_delete_buffer(history_state.diff_buf)
     reset_history_state()
     vim.schedule(function()
         pcall(vim.cmd, "redraw!")
@@ -578,23 +584,42 @@ local function get_commit_details(hash)
     return output
 end
 
-local function update_commit_preview()
-    if not history_state.preview_buf or not vim.api.nvim_buf_is_valid(history_state.preview_buf) then return end
+local function get_commit_diff(hash)
+    local cmd = string.format("git show --pretty=format:'' %s", hash)
+    local ok, output = pcall(vim.fn.systemlist, cmd)
+    if not ok or not output then return { "Failed to load commit diff" } end
+    if #output > 0 and output[1] == "" then
+        table.remove(output, 1)
+    end
+    if #output == 0 then
+        return { "No changes in this commit" }
+    end
+    return output
+end
+
+local function update_commit_previews()
+    if not history_state.details_buf or not vim.api.nvim_buf_is_valid(history_state.details_buf) then return end
+    if not history_state.diff_buf or not vim.api.nvim_buf_is_valid(history_state.diff_buf) then return end
     if not history_state.buf or not vim.api.nvim_buf_is_valid(history_state.buf) then return end
     local cursor = vim.api.nvim_win_get_cursor(history_state.win)
     local line_num = cursor[1]
     if line_num < 1 or line_num > #history_state.commits then
-        vim.api.nvim_buf_set_lines(history_state.preview_buf, 0, -1, false, { "-- Commit Details --" })
+        vim.api.nvim_buf_set_lines(history_state.details_buf, 0, -1, false, { "Commit details." })
+        vim.api.nvim_buf_set_lines(history_state.diff_buf, 0, -1, false, { "Commit changes." })
         return
     end
     local commit_info = history_state.commits[line_num]
     if not commit_info or not commit_info.hash then
-        vim.api.nvim_buf_set_lines(history_state.preview_buf, 0, -1, false, { "-- Commit Details --" })
+        vim.api.nvim_buf_set_lines(history_state.details_buf, 0, -1, false, { "Commit details." })
+        vim.api.nvim_buf_set_lines(history_state.diff_buf, 0, -1, false, { "Commit changes." })
         return
     end
     local details = get_commit_details(commit_info.hash)
-    vim.api.nvim_buf_set_lines(history_state.preview_buf, 0, -1, false, details)
-    pcall(vim.api.nvim_buf_set_option, history_state.preview_buf, "filetype", "git")
+    vim.api.nvim_buf_set_lines(history_state.details_buf, 0, -1, false, details)
+    pcall(vim.api.nvim_buf_set_option, history_state.details_buf, "filetype", "git")
+    local diff = get_commit_diff(commit_info.hash)
+    vim.api.nvim_buf_set_lines(history_state.diff_buf, 0, -1, false, diff)
+    pcall(vim.api.nvim_buf_set_option, history_state.diff_buf, "filetype", "diff")
 end
 
 local function setup_history_keymaps(results_buf)
@@ -614,14 +639,14 @@ local function setup_history_keymaps(results_buf)
         local cursor = vim.api.nvim_win_get_cursor(history_state.win)
         if cursor[1] < #history_state.commits then
             vim.api.nvim_win_set_cursor(history_state.win, { cursor[1] + 1, 0 })
-            update_commit_preview()
+            update_commit_previews()
         end
     end, { buffer = results_buf, silent = true })
     vim.keymap.set("n", "k", function()
         local cursor = vim.api.nvim_win_get_cursor(history_state.win)
         if cursor[1] > 1 then
             vim.api.nvim_win_set_cursor(history_state.win, { cursor[1] - 1, 0 })
-            update_commit_preview()
+            update_commit_previews()
         end
     end, { buffer = results_buf, silent = true })
 end
@@ -634,7 +659,77 @@ local function setup_history_autocmds(results_buf)
             close_history()
         end
     })
-    vim.api.nvim_create_autocmd("CursorMoved", { buffer = results_buf, callback = update_commit_preview })
+    vim.api.nvim_create_autocmd("CursorMoved", { buffer = results_buf,  callback = update_commit_previews })
+end
+
+local function create_three_panel_layout(opts)
+    opts = opts or {}
+    local width_ratio = opts.width_ratio or 0.9
+    local height_ratio = opts.height_ratio or 0.8
+    local left_width_ratio = opts.left_width_ratio or 0.30
+    local middle_width_ratio = opts.middle_width_ratio or 0.35
+    local total_width = math.floor(vim.o.columns * width_ratio)
+    local total_height = math.floor(vim.o.lines * height_ratio)
+    local row = math.floor((vim.o.lines - total_height) / 2)
+    local col = math.floor((vim.o.columns - total_width) / 2)
+    if total_width < 60 or total_height < 20 then
+        error("Window too small for three-panel layout")
+    end
+    local left_width = math.floor(total_width * left_width_ratio)
+    local middle_width = math.floor(total_width * middle_width_ratio)
+    local right_width = total_width - left_width - middle_width - 2
+    if left_width < 10 or middle_width < 10 or right_width < 10 then
+        error("Panel dimensions too small")
+    end
+    local left_buf = vim.api.nvim_create_buf(false, true)
+    local middle_buf = vim.api.nvim_create_buf(false, true)
+    local right_buf = vim.api.nvim_create_buf(false, true)
+    for _, buf in ipairs({ left_buf, middle_buf, right_buf }) do
+        pcall(vim.api.nvim_buf_set_option, buf, "buftype", "nofile")
+        pcall(vim.api.nvim_buf_set_option, buf, "bufhidden", "wipe")
+        pcall(vim.api.nvim_buf_set_option, buf, "swapfile", false)
+        pcall(vim.api.nvim_buf_set_option, buf, "buflisted", false)
+    end
+    local left_win = vim.api.nvim_open_win(left_buf, false, {
+        relative = "editor",
+        width = left_width,
+        height = total_height,
+        row = row,
+        col = col,
+        border = "single",
+        style = "minimal",
+        title = opts.left_title or " Left ",
+        title_pos = "center"
+    })
+    pcall(vim.api.nvim_win_set_option, left_win, "winblend", 0)
+    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = left_win })
+    local middle_win = vim.api.nvim_open_win(middle_buf, false, {
+        relative = "editor",
+        width = middle_width,
+        height = total_height,
+        row = row,
+        col = col + left_width + 1,
+        border = "single",
+        style = "minimal",
+        title = opts.middle_title or " Middle ",
+        title_pos = "center"
+    })
+    pcall(vim.api.nvim_win_set_option, middle_win, "winblend", 0)
+    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = middle_win })
+    local right_win = vim.api.nvim_open_win(right_buf, false, {
+        relative = "editor",
+        width = right_width,
+        height = total_height,
+        row = row,
+        col = col + left_width + middle_width + 2,
+        border = "single",
+        style = "minimal",
+        title = opts.right_title or " Right ",
+        title_pos = "center"
+    })
+    pcall(vim.api.nvim_win_set_option, right_win, "winblend", 0)
+    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = right_win })
+    return { left = { buf = left_buf, win = left_win }, middle = { buf = middle_buf, win = middle_win }, right = { buf = right_buf, win = right_win } }
 end
 
 function Git.history()
@@ -644,26 +739,26 @@ function Git.history()
     end
     local commits = get_commit_history(50)
     history_state.commits = commits
-    local ok_layout, layout = pcall(Window.create_layout, {
-        width_ratio = 0.85,
-        height_ratio = 0.75,
-        preview_width_ratio = 0.6,
-        results_title = string.format(" Commit History (last %d) ", #commits),
-        preview_title = " Commit Details ",
-        input_title = "",
-        input_height = 1,
+    local ok_layout, layout = pcall(create_three_panel_layout, {
+        width_ratio = 0.95,
+        height_ratio = 0.80,
+        left_width_ratio = 0.30,
+        middle_width_ratio = 0.35,
+        left_title = string.format(" Commits (%d) ", #commits),
+        middle_title = " Commit Details ",
+        right_title = " Changes ",
     })
     if not ok_layout then
         print("Failed to create history windows: " .. tostring(layout))
         return
     end
-    history_state.buf = layout.results.buf
-    history_state.win = layout.results.win
-    history_state.preview_buf = layout.preview.buf
-    history_state.preview_win = layout.preview.win
+    history_state.buf = layout.left.buf
+    history_state.win = layout.left.win
+    history_state.details_buf = layout.middle.buf
+    history_state.details_win = layout.middle.win
+    history_state.diff_buf = layout.right.buf
+    history_state.diff_win = layout.right.win
     history_state.is_open = true
-    Window.safe_close_window(layout.input.win)
-    Window.safe_delete_buffer(layout.input.buf)
     local display_lines = {}
     if #commits == 0 then
         table.insert(display_lines, "No commit history found")
@@ -678,7 +773,7 @@ function Git.history()
     vim.api.nvim_set_current_win(history_state.win)
     if #commits > 0 then
         pcall(vim.api.nvim_win_set_cursor, history_state.win, { 1, 0 })
-        update_commit_preview()
+        update_commit_previews()
     end
 end
 
