@@ -473,10 +473,6 @@ function Git.changes()
         return
     end
     local files = get_changed_files()
-    if #files == 0 then
-        vim.notify("No changes to display.", vim.log.levels.INFO)
-        return
-    end
     changes_state.files = files
     local ok_layout, layout = pcall(Window.create_layout, {
         width_ratio = 0.8,
@@ -499,8 +495,12 @@ function Git.changes()
     Window.safe_close_window(layout.input.win)
     Window.safe_delete_buffer(layout.input.buf)
     local display_lines = {}
-    for _, file_info in ipairs(files) do
-        table.insert(display_lines, file_info.display)
+    if #files == 0 then
+        table.insert(display_lines, "No changes to display")
+    else
+        for _, file_info in ipairs(files) do
+            table.insert(display_lines, file_info.display)
+        end
     end
     vim.api.nvim_buf_set_lines(changes_state.buf, 0, -1, false, display_lines)
     setup_changes_keymaps(changes_state.buf)
@@ -572,7 +572,7 @@ local function get_commit_history(limit)
 end
 
 local function get_commit_details(hash)
-    local cmd = string.format("git show --stat --pretty=format:'Commit:  %%H%%nAuthor:  %%an <%%ae>%%nDate:    %%ar (%%ad)%%n%%nMessage: %%s%%n%%b%%n' %s", hash)
+    local cmd = string.format("git show --stat --pretty=format:'Commit: %%H%%nAuthor: %%an <%%ae>%%nDate: %%ar (%%ad)%%n%%nMessage: %%s%%n%%b%%n' %s", hash)
     local ok, output = pcall(vim.fn.systemlist, cmd)
     if not ok or not output then return { "Failed to load commit details" } end
     return output
@@ -643,10 +643,6 @@ function Git.history()
         return
     end
     local commits = get_commit_history(50)
-    if #commits == 0 then
-        vim.notify("No commit history found.", vim.log.levels.INFO)
-        return
-    end
     history_state.commits = commits
     local ok_layout, layout = pcall(Window.create_layout, {
         width_ratio = 0.85,
@@ -669,8 +665,12 @@ function Git.history()
     Window.safe_close_window(layout.input.win)
     Window.safe_delete_buffer(layout.input.buf)
     local display_lines = {}
-    for _, commit_info in ipairs(commits) do
-        table.insert(display_lines, commit_info.display)
+    if #commits == 0 then
+        table.insert(display_lines, "No commit history found")
+    else
+        for _, commit_info in ipairs(commits) do
+            table.insert(display_lines, commit_info.display)
+        end
     end
     vim.api.nvim_buf_set_lines(history_state.buf, 0, -1, false, display_lines)
     setup_history_keymaps(history_state.buf)
