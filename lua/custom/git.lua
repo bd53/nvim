@@ -141,17 +141,42 @@ local function do_commit(win, should_push)
         return
     end
     local text = commit_state.type .. (commit_state.scope ~= "" and "(" .. commit_state.scope .. ")" or "") .. ": " .. commit_state.message
-    if commit_state.description ~= "" then text = text .. "\n\n" .. commit_state.description end
+    if commit_state.description ~= "" then
+        text = text .. "\n\n" .. commit_state.description
+    end
     vim.api.nvim_win_close(win, true)
     vim.notify("Staging and committing: " .. text:gsub("\n.*", "..."), vim.log.levels.INFO)
     vim.fn.jobstart({ "git", "add", "-A" }, {
         on_exit = function(_, code)
-            if code == 0 then
-                vim.fn.jobstart({ "git", "commit", "-m", text }, {
-                    on_exit = function(_, c) if c == 0 and should_push then do_push() end end
-                })
+            if code ~= 0 then
+                vim.notify("Staging failed.", vim.log.levels.ERROR)
+                return
             end
-        end
+            vim.fn.jobstart({ "git", "commit", "-m", text }, {
+                stdout_buffered = true,
+                stderr_buffered = true,
+                on_stdout = function(_, data)
+                    if data then
+                        vim.notify("Git output: " .. table.concat(data, "\n"), vim.log.levels.INFO)
+                    end
+                end,
+                on_stderr = function(_, data)
+                    if data then
+                        vim.notify("Git error: " .. table.concat(data, "\n"), vim.log.levels.ERROR)
+                    end
+                end,
+                on_exit = function(_, c)
+                    if c == 0 then
+                        vim.notify("Commit succeeded: " .. text:gsub("\n.*", "..."), vim.log.levels.INFO)
+                        if should_push then
+                            do_push()
+                        end
+                    else
+                        vim.notify("Commit failed.", vim.log.levels.ERROR)
+                    end
+                end,
+            })
+        end,
     })
 end
 
@@ -375,7 +400,7 @@ function Git.changes()
     Window.safe_delete_buffer(layout.input.buf)
     local display_lines = {}
     if #files == 0 then
-        table.insert(display_lines, "No changes to display")
+        table.insert(display_lines, "No changes to display.")
     else
         for _, file_info in ipairs(files) do
             table.insert(display_lines, file_info.display)
@@ -459,19 +484,19 @@ end
 local function get_commit_details(hash)
     local cmd = string.format("git show --stat --pretty=format:'Commit: %%H%%nAuthor: %%an <%%ae>%%nDate: %%ar (%%ad)%%n%%nMessage: %%s%%n%%b%%n' %s", hash)
     local ok, output = pcall(vim.fn.systemlist, cmd)
-    if not ok or not output then return { "Failed to load commit details" } end
+    if not ok or not output then return { "Failed to load commit details." } end
     return output
 end
 
 local function get_commit_diff(hash)
     local cmd = string.format("git show --pretty=format:'' %s", hash)
     local ok, output = pcall(vim.fn.systemlist, cmd)
-    if not ok or not output then return { "Failed to load commit diff" } end
+    if not ok or not output then return { "Failed to load commit diff." } end
     if #output > 0 and output[1] == "" then
         table.remove(output, 1)
     end
     if #output == 0 then
-        return { "No changes in this commit" }
+        return { "No changes in this commit." }
     end
     return output
 end
@@ -541,76 +566,6 @@ local function setup_history_autocmds(results_buf)
     vim.api.nvim_create_autocmd("CursorMoved", { buffer = results_buf,  callback = update_commit_previews })
 end
 
-local function create_three_panel_layout(opts)
-    opts = opts or {}
-    local width_ratio = opts.width_ratio or 0.9
-    local height_ratio = opts.height_ratio or 0.8
-    local left_width_ratio = opts.left_width_ratio or 0.30
-    local middle_width_ratio = opts.middle_width_ratio or 0.35
-    local total_width = math.floor(vim.o.columns * width_ratio)
-    local total_height = math.floor(vim.o.lines * height_ratio)
-    local row = math.floor((vim.o.lines - total_height) / 2)
-    local col = math.floor((vim.o.columns - total_width) / 2)
-    if total_width < 60 or total_height < 20 then
-        error("Window too small for three-panel layout")
-    end
-    local left_width = math.floor(total_width * left_width_ratio)
-    local middle_width = math.floor(total_width * middle_width_ratio)
-    local right_width = total_width - left_width - middle_width - 2
-    if left_width < 10 or middle_width < 10 or right_width < 10 then
-        error("Panel dimensions too small")
-    end
-    local left_buf = vim.api.nvim_create_buf(false, true)
-    local middle_buf = vim.api.nvim_create_buf(false, true)
-    local right_buf = vim.api.nvim_create_buf(false, true)
-    for _, buf in ipairs({ left_buf, middle_buf, right_buf }) do
-        pcall(vim.api.nvim_buf_set_option, buf, "buftype", "nofile")
-        pcall(vim.api.nvim_buf_set_option, buf, "bufhidden", "wipe")
-        pcall(vim.api.nvim_buf_set_option, buf, "swapfile", false)
-        pcall(vim.api.nvim_buf_set_option, buf, "buflisted", false)
-    end
-    local left_win = vim.api.nvim_open_win(left_buf, false, {
-        relative = "editor",
-        width = left_width,
-        height = total_height,
-        row = row,
-        col = col,
-        border = "single",
-        style = "minimal",
-        title = opts.left_title or " Left ",
-        title_pos = "center"
-    })
-    pcall(vim.api.nvim_win_set_option, left_win, "winblend", 0)
-    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = left_win })
-    local middle_win = vim.api.nvim_open_win(middle_buf, false, {
-        relative = "editor",
-        width = middle_width,
-        height = total_height,
-        row = row,
-        col = col + left_width + 1,
-        border = "single",
-        style = "minimal",
-        title = opts.middle_title or " Middle ",
-        title_pos = "center"
-    })
-    pcall(vim.api.nvim_win_set_option, middle_win, "winblend", 0)
-    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = middle_win })
-    local right_win = vim.api.nvim_open_win(right_buf, false, {
-        relative = "editor",
-        width = right_width,
-        height = total_height,
-        row = row,
-        col = col + left_width + middle_width + 2,
-        border = "single",
-        style = "minimal",
-        title = opts.right_title or " Right ",
-        title_pos = "center"
-    })
-    pcall(vim.api.nvim_win_set_option, right_win, "winblend", 0)
-    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = right_win })
-    return { left = { buf = left_buf, win = left_win }, middle = { buf = middle_buf, win = middle_win }, right = { buf = right_buf, win = right_win } }
-end
-
 function Git.history()
     if is_history_valid_state() then
         close_history()
@@ -640,7 +595,7 @@ function Git.history()
     history_state.is_open = true
     local display_lines = {}
     if #commits == 0 then
-        table.insert(display_lines, "No commit history found")
+        table.insert(display_lines, "No commit history found.")
     else
         for _, commit_info in ipairs(commits) do
             table.insert(display_lines, commit_info.display)
