@@ -5,6 +5,10 @@ return {
         config = function()
             require("nvim-treesitter.configs").setup({
                 ensure_installed = { "cpp", "lua", "rust", "tsx", "typescript", "vimdoc", "vim", "svelte" },
+                modules = {},
+                sync_install = false,
+                ignore_install = {},
+                auto_install = true,
                 highlight = {
                     enable = true,
                     disable = function(lang, buf)

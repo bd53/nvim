@@ -5,8 +5,11 @@ vim.cmd("cnoreabbrev q q!")
 vim.keymap.set("n", "<c-s>", "<cmd>w<CR>", opts)
 vim.keymap.set("i", "<c-s>", "<Esc><cmd>w<CR>a", opts)
 
-vim.keymap.set("n", "<c-z>", "<cmd>undo<CR>", opts)
-vim.keymap.set("i", "<c-z>", "<C-o>u", opts)
+vim.keymap.set({"n", "v"}, "<c-c>", '"+y', opts)
+vim.keymap.set("n", "<c-v>", '"+p', opts)
+vim.keymap.set("i", "<c-v>", '<Esc>"+pa', opts)
+
+vim.keymap.set({"n", "i"}, "<c-z>", "<cmd>undo<CR>", opts)
 
 vim.keymap.set("n", "<c-n>", "<cmd>bnext<CR>", opts)
 vim.keymap.set("n", "<c-b>", "<cmd>bprevious<CR>", opts)
@@ -22,20 +25,17 @@ vim.keymap.set("n", "<leader>gh", function() require("custom.git").history() end
 vim.keymap.set("n", "<leader>gc", function() require("custom.git").commit() end, opts)
 vim.keymap.set("n", "<leader>gp", function() require("custom.git").push() end, opts)
 
-vim.keymap.set("n", "<c-t>", function()
-    local term_bufnr
-    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.api.nvim_buf_get_option(bufnr, "buftype") == "terminal" and vim.api.nvim_buf_is_loaded(bufnr) then
-            term_bufnr = bufnr
-            break
-        end
-    end
-    if term_bufnr then
-        vim.api.nvim_buf_delete(term_bufnr, { force = true })
+local term_win = nil
+vim.keymap.set("n", "<leader>t", function()
+    if term_win and vim.api.nvim_win_is_valid(term_win) then
+        vim.api.nvim_win_close(term_win, true)
+        term_win = nil
         return
     end
     vim.cmd("vsplit | terminal")
+    term_win = vim.api.nvim_get_current_win()
 end, opts)
+vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", opts)
 
 vim.keymap.set("n", "<leader>cd", function()
     vim.ui.input({ prompt = "Change directory: " }, function(input)
