@@ -1,8 +1,9 @@
-local Gruvbox = {}
+local Window = require("custom.window")
+local Theme = {}
 
 -- https://github.com/ellisonleao/gruvbox.nvim/blob/main/lua/gruvbox.lua#L74
 ---@class GruvboxPalette
-Gruvbox.palette = {
+Theme.gruvbox_palette = {
     dark0_hard = "#1d2021",
     dark0 = "#282828",
     dark0_soft = "#32302f",
@@ -41,11 +42,104 @@ Gruvbox.palette = {
     gray = "#928374",
 }
 
-Gruvbox.current_mode = "dark"
+---@class TerminalPalette
+Theme.terminal_palette = {
+    bg0 = "#000000",
+    bg1 = "#1a1a1a",
+    bg2 = "#262626",
+    bg3 = "#333333",
+    bg4 = "#4d4d4d",
+    fg0 = "#ffffff",
+    fg1 = "#e6e6e6",
+    fg2 = "#cccccc",
+    fg3 = "#b3b3b3",
+    fg4 = "#999999",
+    red = "#ff5555",
+    green = "#50fa7b",
+    yellow = "#f1fa8c",
+    blue = "#8be9fd",
+    purple = "#bd93f9",
+    aqua = "#8be9fd",
+    orange = "#ffb86c",
+    gray = "#6272a4",
+}
 
-local function get_colors()
-    local p = Gruvbox.palette
-    if Gruvbox.current_mode == "dark" then
+---@class SolarizedPalette
+Theme.solarized_palette = {
+    base03 = "#002b36",
+    base02 = "#073642",
+    base01 = "#586e75",
+    base00 = "#657b83",
+    base0 = "#839496",
+    base1 = "#93a1a1",
+    base2 = "#eee8d5",
+    base3 = "#fdf6e3",
+    yellow = "#b58900",
+    orange = "#cb4b16",
+    red = "#dc322f",
+    magenta = "#d33682",
+    violet = "#6c71c4",
+    blue = "#268bd2",
+    cyan = "#2aa198",
+    green = "#859900",
+}
+
+---@class VimPalette
+Theme.vim_palette = {
+    bg = "#ffffff",
+    bg_dark = "#e4e4e4",
+    bg_darker = "#d0d0d0",
+    bg_darkest = "#bcbcbc",
+    fg = "#000000",
+    fg_light = "#4a4a4a",
+    fg_lighter = "#767676",
+    fg_lightest = "#9e9e9e",
+    red = "#ff0000",
+    green = "#00ff00",
+    yellow = "#ffff00",
+    blue = "#0000ff",
+    magenta = "#ff00ff",
+    cyan = "#00ffff",
+    dark_red = "#800000",
+    dark_green = "#008000",
+    dark_yellow = "#808000",
+    dark_blue = "#000080",
+    dark_magenta = "#800080",
+    dark_cyan = "#008080",
+    gray = "#808080",
+}
+
+Theme.theme_order = { "gruvbox_dark", "gruvbox_light", "terminal", "solarized_light", "vim_classic" }
+Theme.current_theme = "gruvbox_dark"
+Theme.picker_state = { buf = nil, win = nil, is_open = false }
+
+local theme_cache_path = vim.fn.stdpath("config") .. "/theme.txt"
+
+local function save_theme()
+    local file = io.open(theme_cache_path, "w")
+    if file then
+        file:write(Theme.current_theme)
+        file:close()
+    end
+end
+
+local function load_theme()
+    local file = io.open(theme_cache_path, "r")
+    if file then
+        local saved_theme = file:read("*l")
+        file:close()
+        for _, theme in ipairs(Theme.theme_order) do
+            if theme == saved_theme then
+                Theme.current_theme = saved_theme
+                return
+            end
+        end
+    end
+end
+
+local function get_gruvbox_colors(mode)
+    local p = Theme.gruvbox_palette
+    if mode == "dark" then
         return {
             bg0 = p.dark0,
             bg1 = p.dark1,
@@ -89,10 +183,101 @@ local function get_colors()
     }
 end
 
+local function get_terminal_colors()
+    local p = Theme.terminal_palette
+    return {
+        bg0 = p.bg0,
+        bg1 = p.bg1,
+        bg2 = p.bg2,
+        bg3 = p.bg3,
+        bg4 = p.bg4,
+        fg0 = p.fg0,
+        fg1 = p.fg1,
+        fg2 = p.fg2,
+        fg3 = p.fg3,
+        fg4 = p.fg4,
+        red = p.red,
+        green = p.green,
+        yellow = p.yellow,
+        blue = p.blue,
+        purple = p.purple,
+        aqua = p.aqua,
+        orange = p.orange,
+        gray = p.gray,
+    }
+end
+
+local function get_solarized_light_colors()
+    local p = Theme.solarized_palette
+    return {
+        bg0 = p.base3,
+        bg1 = p.base2,
+        bg2 = p.base2,
+        bg3 = p.base1,
+        bg4 = p.base0,
+        fg0 = p.base03,
+        fg1 = p.base02,
+        fg2 = p.base01,
+        fg3 = p.base00,
+        fg4 = p.base0,
+        red = p.red,
+        green = p.green,
+        yellow = p.yellow,
+        blue = p.blue,
+        purple = p.violet,
+        aqua = p.cyan,
+        orange = p.orange,
+        gray = p.base1,
+    }
+end
+
+local function get_vim_classic_colors()
+    local p = Theme.vim_palette
+    return {
+        bg0 = p.bg,
+        bg1 = p.bg_dark,
+        bg2 = p.bg_darker,
+        bg3 = p.bg_darkest,
+        bg4 = p.fg_lightest,
+        fg0 = p.fg,
+        fg1 = p.fg_light,
+        fg2 = p.fg_light,
+        fg3 = p.fg_lighter,
+        fg4 = p.fg_lightest,
+        red = p.dark_red,
+        green = p.dark_green,
+        yellow = p.dark_yellow,
+        blue = p.dark_blue,
+        purple = p.dark_magenta,
+        aqua = p.dark_cyan,
+        orange = p.dark_red,
+        gray = p.gray,
+    }
+end
+
+local function get_colors()
+    if Theme.current_theme == "terminal" then
+        return get_terminal_colors()
+    elseif Theme.current_theme == "gruvbox_dark" then
+        return get_gruvbox_colors("dark")
+    elseif Theme.current_theme == "gruvbox_light" then
+        return get_gruvbox_colors("light")
+    elseif Theme.current_theme == "solarized_light" then
+        return get_solarized_light_colors()
+    elseif Theme.current_theme == "vim_classic" then
+        return get_vim_classic_colors()
+    end
+    return get_gruvbox_colors("dark")
+end
+
 local function setup_highlights()
     local c = get_colors()
     local set = vim.api.nvim_set_hl
-    vim.cmd("set background=" .. Gruvbox.current_mode)
+    if Theme.current_theme == "gruvbox_light" or Theme.current_theme == "solarized_light" or Theme.current_theme == "vim_classic" then
+        vim.cmd("set background=light")
+    else
+        vim.cmd("set background=dark")
+    end
     set(0, "Normal", { fg = c.fg1, bg = c.bg0 })
     set(0, "NormalFloat", { fg = c.fg1, bg = c.bg1 })
     set(0, "NormalNC", { fg = c.fg1, bg = c.bg0 })
@@ -258,13 +443,83 @@ local function setup_highlights()
     set(0, "netrwVersion", { fg = c.green })
 end
 
-function Gruvbox.toggle()
-    Gruvbox.current_mode = (Gruvbox.current_mode == "dark") and "light" or "dark"
+function Theme.toggle()
+    local current_index = 1
+    for i, theme in ipairs(Theme.theme_order) do
+        if theme == Theme.current_theme then
+            current_index = i
+            break
+        end
+    end
+    local next_index = (current_index % #Theme.theme_order) + 1
+    Theme.current_theme = Theme.theme_order[next_index]
     setup_highlights()
+    save_theme()
     if _G.statusline_update_colors then _G.statusline_update_colors() end
-    vim.notify(("Gruvbox mode: %s"):format(Gruvbox.current_mode), vim.log.levels.WARN)
+    vim.notify(("Theme: %s"):format(Theme.current_theme), vim.log.levels.WARN)
 end
 
+local function apply_theme(theme_name)
+    if theme_name then
+        Theme.current_theme = theme_name
+        setup_highlights()
+        save_theme()
+        if _G.statusline_update_colors then _G.statusline_update_colors() end
+        vim.notify(("Theme: %s"):format(Theme.current_theme), vim.log.levels.WARN)
+    end
+end
+
+local function close_picker()
+    if Theme.picker_state.is_open then
+        Window.safe_close_window(Theme.picker_state.win)
+        Window.safe_delete_buffer(Theme.picker_state.buf)
+        Theme.picker_state = { buf = nil, win = nil, is_open = false }
+    end
+end
+
+function Theme.picker()
+    if Theme.picker_state.is_open then close_picker() return end
+    local display_names = {
+        gruvbox_dark = "Gruvbox Dark",
+        gruvbox_light = "Gruvbox Light",
+        terminal = "Terminal",
+        solarized_light = "Solarized Light",
+        vim_classic = "Vim Classic"
+    }
+    local items = {}
+    for _, theme in ipairs(Theme.theme_order) do
+        local display_name = display_names[theme] or theme
+        local marker = (theme == Theme.current_theme) and " ✓" or ""
+        table.insert(items, display_name .. marker)
+    end
+    local buf, win = Window.create_select({
+        items = items,
+        title = " Options ",
+        width = 30,
+        callback = function(selected)
+            close_picker()
+            if selected then
+                local clean_name = selected:gsub(" ✓$", "")
+                for theme_key, display_name in pairs(display_names) do
+                    if display_name == clean_name then
+                        apply_theme(theme_key)
+                        break
+                    end
+                end
+            end
+        end
+    })
+    Theme.picker_state = { buf = buf, win = win, is_open = true }
+    vim.api.nvim_create_autocmd("WinClosed", {
+        pattern = tostring(win),
+        once = true,
+        callback = function()
+            Theme.picker_state = { buf = nil, win = nil, is_open = false }
+        end
+    })
+end
+
+load_theme()
 setup_highlights()
 
-return Gruvbox
+return Theme

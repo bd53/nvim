@@ -19,7 +19,8 @@ vim.keymap.set("n", "<c-n>", "<cmd>bnext<CR>", opts)
 vim.keymap.set("n", "<c-b>", "<cmd>bprevious<CR>", opts)
 vim.keymap.set("n", "<c-d>", "<cmd>bdelete<CR>", opts)
 
-vim.keymap.set("n", "<leader>cb", function() require("custom.gruvbox").toggle() end, opts)
+vim.keymap.set("n", "<leader>cb", function() require("custom.themes").toggle() end, opts)
+vim.keymap.set("n", "<leader>tp", function() require("custom.themes").picker() end, opts)
 vim.keymap.set("n", "<c-f>", function() require("custom.finder").toggle() end, opts)
 vim.keymap.set("n", "<leader>/", function() require("custom.comments").toggle() end, opts)
 

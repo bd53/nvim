@@ -1,33 +1,83 @@
-local Gruvbox = require("custom.gruvbox")
+local Theme = require("custom.themes")
 
 local state = { mode = "N", git_branch = "", git_last_check = 0 }
 
 local function get_colors()
-    local p = Gruvbox.palette
-    if Gruvbox.current_mode == "dark" then
-        return {
-            mode_bg = p.bright_aqua,
-            mode_fg = p.dark0,
-            branch_fg = p.bright_yellow,
-            filetype_fg = p.bright_aqua,
-            position_fg = p.light2,
-            indent_fg = p.bright_purple,
-            session_fg = p.bright_yellow,
-            lsp_fg = p.bright_blue,
-            bg = p.dark0,
-        }
-    end
-    return {
-        mode_bg = p.neutral_aqua,
-        mode_fg = p.light0,
-        branch_fg = p.neutral_yellow,
-        filetype_fg = p.neutral_aqua,
-        position_fg = p.dark2,
-        indent_fg = p.neutral_purple,
-        session_fg = p.neutral_yellow,
-        lsp_fg = p.neutral_blue,
-        bg = p.light0,
+    local theme = Theme.current_theme
+    local color_map = {
+        gruvbox_dark = function()
+            local p = Theme.gruvbox_palette
+            return {
+                mode_bg = p.bright_aqua,
+                mode_fg = p.dark0,
+                branch_fg = p.bright_yellow,
+                filetype_fg = p.bright_aqua,
+                position_fg = p.light2,
+                indent_fg = p.bright_purple,
+                session_fg = p.bright_yellow,
+                lsp_fg = p.bright_blue,
+                bg = p.dark0,
+            }
+        end,
+        gruvbox_light = function()
+            local p = Theme.gruvbox_palette
+            return {
+                mode_bg = p.neutral_aqua,
+                mode_fg = p.light0,
+                branch_fg = p.neutral_yellow,
+                filetype_fg = p.neutral_aqua,
+                position_fg = p.dark2,
+                indent_fg = p.neutral_purple,
+                session_fg = p.neutral_yellow,
+                lsp_fg = p.neutral_blue,
+                bg = p.light0,
+            }
+        end,
+        terminal = function()
+            local p = Theme.terminal_palette
+            return {
+                mode_bg = p.aqua,
+                mode_fg = p.bg0,
+                branch_fg = p.yellow,
+                filetype_fg = p.aqua,
+                position_fg = p.fg2,
+                indent_fg = p.purple,
+                session_fg = p.yellow,
+                lsp_fg = p.blue,
+                bg = p.bg0,
+            }
+        end,
+        solarized_light = function()
+            local p = Theme.solarized_palette
+            return {
+                mode_bg = p.cyan,
+                mode_fg = p.base3,
+                branch_fg = p.yellow,
+                filetype_fg = p.cyan,
+                position_fg = p.base01,
+                indent_fg = p.violet,
+                session_fg = p.orange,
+                lsp_fg = p.blue,
+                bg = p.base3,
+            }
+        end,
+        vim_classic = function()
+            local p = Theme.vim_palette
+            return {
+                mode_bg = p.dark_cyan,
+                mode_fg = p.bg,
+                branch_fg = p.dark_green,
+                filetype_fg = p.dark_cyan,
+                position_fg = p.fg_light,
+                indent_fg = p.dark_magenta,
+                session_fg = p.dark_yellow,
+                lsp_fg = p.dark_blue,
+                bg = p.bg,
+            }
+        end,
     }
+    local color_fn = color_map[theme] or color_map.gruvbox_dark
+    return color_fn()
 end
 
 local colors = get_colors()
@@ -187,7 +237,19 @@ local components = {
 }
 
 local function render()
-    local statusline = components.mode() .. components.encoding() .. components.indent() .. components.session() .. components.branch() .. components.filepath() .. components.lsp() .. components.word_count() .. components.filetype() .. components.file_size() .. components.total_lines() .. components.progress() .. components.location()
+    local statusline = components.mode()
+    .. components.encoding() 
+    .. components.indent() 
+    .. components.session() 
+    .. components.branch() 
+    .. components.filepath() 
+    .. components.lsp() 
+    .. components.word_count() 
+    .. components.filetype() 
+    .. components.file_size() 
+    .. components.total_lines() 
+    .. components.progress() 
+    .. components.location()
     return statusline .. "%#StatuslineNormal#"
 end
 

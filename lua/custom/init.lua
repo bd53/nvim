@@ -1,8 +1,8 @@
 local modules = {
-    "finder",
-    "gruvbox",
     "comments",
+    "finder",
     "git",
+    "themes",
     "status",
     "window",
 }

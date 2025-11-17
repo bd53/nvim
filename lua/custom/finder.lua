@@ -94,8 +94,7 @@ local function search_content(query)
         table.insert(exclude_args, string.format("--glob '!%s'", pattern))
     end
     if vim.fn.executable("rg") == 1 then
-        local cmd = string.format("rg --line-number --no-heading --color=never %s '%s' 2>/dev/null", table.concat(exclude_args, " "), query:gsub("'", "'\\''"))
-        local output = vim.fn.systemlist(cmd)
+        local output = vim.fn.systemlist(string.format("rg --line-number --no-heading --color=never %s '%s' 2>/dev/null", table.concat(exclude_args, " "), query:gsub("'", "'\\''")))
         for _, line in ipairs(output) do
             table.insert(results, line)
         end
@@ -104,13 +103,11 @@ local function search_content(query)
         for _, pattern in ipairs(config.ignored_patterns) do
             exclude_str = exclude_str .. string.format("--exclude-dir='%s' ", pattern)
         end
-        local cmd = string.format("grep -rn %s '%s' . 2>/dev/null", exclude_str, query:gsub("'", "'\\''"))
-        local output = vim.fn.systemlist(cmd)
+        local output = vim.fn.systemlist(string.format("grep -rn %s '%s' . 2>/dev/null", exclude_str, query:gsub("'", "'\\''")))
         for _, line in ipairs(output) do
             table.insert(results, line)
         end
     end
-
     return results
 end
 
@@ -128,9 +125,7 @@ end
 
 local function parse_grep_result(line)
     local file, line_num, content = line:match("^([^:]+):(%d+):(.*)$")
-    if file and line_num and content then
-        return { type = "grep", file = file, line_num = tonumber(line_num), content = content, display = line }
-    end
+    if file and line_num and content then return { type = "grep", file = file, line_num = tonumber(line_num), content = content, display = line } end
     return nil
 end
 
@@ -306,10 +301,7 @@ local function open_finder()
         input_title = "",
         input_height = 3,
     })
-    if not ok_layout then
-        vim.notify(("Failed to create finder windows: %s"):format(tostring(layout)), vim.log.levels.ERROR)
-        return
-    end
+    if not ok_layout then vim.notify(("Failed to create finder windows: %s"):format(tostring(layout)), vim.log.levels.ERROR) return end
     state.buf = layout.results.buf
     state.win = layout.results.win
     state.preview_buf = layout.preview.buf
@@ -325,7 +317,6 @@ local function open_finder()
     vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { "> ", string.format("%d results", #state.all_results) })
     setup_keymaps(state.buf, state.input_buf)
     setup_autocmds(state.buf)
-
     vim.api.nvim_set_current_win(state.win)
     if #state.all_results > 0 then
         pcall(vim.api.nvim_win_set_cursor, state.win, { 1, 0 })
@@ -334,10 +325,7 @@ local function open_finder()
 end
 
 function Finder.toggle()
-    if is_valid_state() then
-        close_finder()
-        return
-    end
+    if is_valid_state() then close_finder() return end
     open_finder()
 end
 
