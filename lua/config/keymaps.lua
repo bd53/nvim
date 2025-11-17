@@ -2,12 +2,16 @@ local opts = { noremap = true, silent = true }
 
 vim.cmd("cnoreabbrev q q!")
 
-vim.keymap.set("n", "<c-s>", "<cmd>w<CR>", opts)
-vim.keymap.set("i", "<c-s>", "<Esc><cmd>w<CR>a", opts)
+vim.keymap.set("n", "<c-a>", "ggVG", opts)
+vim.keymap.set("i", "<C-a>", "<Esc>ggVG", opts)
 
 vim.keymap.set({"n", "v"}, "<c-c>", '"+y', opts)
+
 vim.keymap.set("n", "<c-v>", '"+p', opts)
 vim.keymap.set("i", "<c-v>", '<Esc>"+pa', opts)
+
+vim.keymap.set("n", "<c-s>", "<cmd>w<CR>", opts)
+vim.keymap.set("i", "<c-s>", "<Esc><cmd>w<CR>a", opts)
 
 vim.keymap.set({"n", "i"}, "<c-z>", "<cmd>undo<CR>", opts)
 

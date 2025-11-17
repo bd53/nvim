@@ -45,6 +45,17 @@ function Comments.toggle()
     vim.api.nvim_set_current_line(comment_str .. " " .. line)
 end
 
+local function format_entire_buffer()
+    local start_line = 0
+    local end_line = vim.api.nvim_buf_line_count(0) - 1
+    vim.api.nvim_buf_call(0, function()
+        vim.cmd(string.format("%d,%dnormal! ==", start_line + 1, end_line + 1))
+    end)
+    vim.cmd("retab")
+end
+
+vim.keymap.set("n", "<leader>f", format_entire_buffer)
+
 setup_highlights()
 highlight_keywords()
 
