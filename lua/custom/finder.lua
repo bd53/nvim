@@ -8,50 +8,30 @@ local config = {
 }
 
 local state = {
-    buf = nil,
-    win = nil,
-    preview_buf = nil,
-    preview_win = nil,
-    input_buf = nil,
-    input_win = nil,
+    layout = nil,
     is_open = false,
     files = {},
     all_results = {},
     query = "",
 }
 
+local function is_valid_state()
+    return state.is_open and state.layout and state.layout.results.win and vim.api.nvim_win_is_valid(state.layout.results.win)
+end
+
+local function reset_state()
+    state.layout = nil
+    state.is_open = false
+    state.files = {}
+    state.all_results = {}
+    state.query = ""
+end
+
 local function is_ignored(path)
     for _, pattern in ipairs(config.ignored_patterns) do
         if path:find(pattern) then return true end
     end
     return false
-end
-
-local function is_valid_state()
-    return state.is_open and state.win and vim.api.nvim_win_is_valid(state.win)
-end
-
-local function reset_state()
-    for k in pairs(state) do
-        if k == "is_open" then state[k] = false
-        elseif k == "files" or k == "all_results" then state[k] = {}
-        elseif k == "query" then state[k] = ""
-        else state[k] = nil end
-    end
-end
-
-local function close_finder()
-    Window.safe_close_window(state.win)
-    Window.safe_close_window(state.preview_win)
-    Window.safe_close_window(state.input_win)
-    Window.safe_delete_buffer(state.buf)
-    Window.safe_delete_buffer(state.preview_buf)
-    Window.safe_delete_buffer(state.input_buf)
-    reset_state()
-    vim.schedule(function()
-        pcall(vim.cmd, "redraw!")
-        pcall(vim.cmd, "mode")
-    end)
 end
 
 local function get_all_files()
@@ -86,27 +66,32 @@ local function get_all_files()
     return files
 end
 
+local function build_exclude_args(tool)
+    local exclude_args = {}
+    if tool == "rg" then
+        for _, pattern in ipairs(config.ignored_patterns) do
+            table.insert(exclude_args, string.format("--glob '!%s'", pattern))
+        end
+    elseif tool == "grep" then
+        for _, pattern in ipairs(config.ignored_patterns) do
+            table.insert(exclude_args, string.format("--exclude-dir='%s'", pattern))
+        end
+    end
+    return table.concat(exclude_args, " ")
+end
+
 local function search_content(query)
     if not query or query == "" then return {} end
     local results = {}
-    local exclude_args = {}
-    for _, pattern in ipairs(config.ignored_patterns) do
-        table.insert(exclude_args, string.format("--glob '!%s'", pattern))
-    end
+    local escaped_query = query:gsub("'", "'\\''")
     if vim.fn.executable("rg") == 1 then
-        local output = vim.fn.systemlist(string.format("rg --line-number --no-heading --color=never %s '%s' 2>/dev/null", table.concat(exclude_args, " "), query:gsub("'", "'\\''")))
-        for _, line in ipairs(output) do
-            table.insert(results, line)
-        end
+        local exclude_args = build_exclude_args("rg")
+        local cmd = string.format("rg --line-number --no-heading --color=never %s '%s' 2>/dev/null", exclude_args, escaped_query)
+        results = vim.fn.systemlist(cmd)
     elseif vim.fn.executable("grep") == 1 then
-        local exclude_str = ""
-        for _, pattern in ipairs(config.ignored_patterns) do
-            exclude_str = exclude_str .. string.format("--exclude-dir='%s' ", pattern)
-        end
-        local output = vim.fn.systemlist(string.format("grep -rn %s '%s' . 2>/dev/null", exclude_str, query:gsub("'", "'\\''")))
-        for _, line in ipairs(output) do
-            table.insert(results, line)
-        end
+        local exclude_args = build_exclude_args("grep")
+        local cmd = string.format("grep -rn %s '%s' . 2>/dev/null", exclude_args, escaped_query)
+        results = vim.fn.systemlist(cmd)
     end
     return results
 end
@@ -140,155 +125,182 @@ local function build_unified_results(query)
     local results = {}
     local matching_files = filter_files(state.files, query)
     for _, file in ipairs(matching_files) do
-        table.insert(results, {  type = "file", file = file, display = "[!] " .. file })
+        table.insert(results, { type = "file", file = file, display = "[F] " .. file })
     end
     local grep_results = search_content(query)
     for _, line in ipairs(grep_results) do
         local parsed = parse_grep_result(line)
         if parsed then
-            table.insert(results, { type = "grep", file = parsed.file, line_num = parsed.line_num, content = parsed.content, display = "[!] " .. line })
+            parsed.display = "[G] " .. line
+            table.insert(results, parsed)
         end
     end
     return results
 end
 
-local function update_preview()
-    if not state.preview_buf or not vim.api.nvim_buf_is_valid(state.preview_buf) then return end
-    if not state.win or not vim.api.nvim_win_is_valid(state.win) then return end
-    local cursor = vim.api.nvim_win_get_cursor(state.win)
-    local line_num = cursor[1]
-    if line_num < 1 or line_num > #state.all_results then
-        vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, { "Preview." })
-        return
+local function set_preview_content(lines, message)
+    if not state.layout or not state.layout.preview.buf then return end
+    if not vim.api.nvim_buf_is_valid(state.layout.preview.buf) then return end
+    vim.api.nvim_buf_set_lines(state.layout.preview.buf, 0, -1, false, lines or { message or "Preview." })
+end
+
+local function preview_grep_result(result, file_lines)
+    local context_before = 5
+    local context_after = 5
+    local start_line = math.max(1, result.line_num - context_before)
+    local end_line = math.min(#file_lines, result.line_num + context_after)
+    local preview_lines = {}
+    for i = start_line, end_line do
+        local prefix = (i == result.line_num) and ">>> " or "    "
+        table.insert(preview_lines, string.format("%s%4d: %s", prefix, i, file_lines[i]))
     end
-    local result = state.all_results[line_num]
-    if not result then
-        vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, { "Preview." })
-        return
+    set_preview_content(preview_lines)
+    local ft = vim.filetype.match({ filename = result.file })
+    if ft then
+        pcall(vim.api.nvim_buf_set_option, state.layout.preview.buf, "filetype", ft)
     end
-    local ok, lines = pcall(vim.fn.readfile, result.file)
-    if not ok or not lines then
-        vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, { "Cannot preview file." })
-        return
-    end
-    if result.type == "grep" then
-        local context_before = 5
-        local context_after = 5
-        local start_line = math.max(1, result.line_num - context_before)
-        local end_line = math.min(#lines, result.line_num + context_after)
-        local preview_lines = {}
-        for i = start_line, end_line do
-            local prefix = (i == result.line_num) and ">>> " or "    "
-            table.insert(preview_lines, string.format("%s%4d: %s", prefix, i, lines[i]))
-        end
-        vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, preview_lines)
-        local ft = vim.filetype.match({ filename = result.file })
-        if ft then
-            pcall(vim.api.nvim_buf_set_option, state.preview_buf, "filetype", ft)
-        end
-        if state.preview_win and vim.api.nvim_win_is_valid(state.preview_win) then
-            local match_line_in_preview = result.line_num - start_line + 1
-            pcall(vim.api.nvim_win_set_cursor, state.preview_win, { match_line_in_preview, 0 })
-        end
-    else
-        local preview_lines = {}
-        for i = 1, math.min(#lines, 200) do
-            table.insert(preview_lines, lines[i])
-        end
-        vim.api.nvim_buf_set_lines(state.preview_buf, 0, -1, false, preview_lines)
-        local ft = vim.filetype.match({ filename = result.file })
-        if ft then
-            pcall(vim.api.nvim_buf_set_option, state.preview_buf, "filetype", ft)
-        end
+    if state.layout.preview.win and vim.api.nvim_win_is_valid(state.layout.preview.win) then
+        local match_line_in_preview = result.line_num - start_line + 1
+        pcall(vim.api.nvim_win_set_cursor, state.layout.preview.win, { match_line_in_preview, 0 })
     end
 end
 
+local function preview_file_result(result, file_lines)
+    local preview_lines = {}
+    for i = 1, math.min(#file_lines, 200) do
+        table.insert(preview_lines, file_lines[i])
+    end
+    set_preview_content(preview_lines)
+    local ft = vim.filetype.match({ filename = result.file })
+    if ft then
+        pcall(vim.api.nvim_buf_set_option, state.layout.preview.buf, "filetype", ft)
+    end
+end
+
+local function update_preview()
+    if not state.layout or not state.layout.results.win then return end
+    if not vim.api.nvim_win_is_valid(state.layout.results.win) then return end
+    local cursor = vim.api.nvim_win_get_cursor(state.layout.results.win)
+    local line_num = cursor[1]
+    if line_num < 1 or line_num > #state.all_results then set_preview_content(nil, "Preview.") return end
+    local result = state.all_results[line_num]
+    if not result then set_preview_content(nil, "Preview.") return end
+    local ok, file_lines = pcall(vim.fn.readfile, result.file)
+    if not ok or not file_lines then set_preview_content(nil, "Cannot preview file.") return end
+    if result.type == "grep" then
+        preview_grep_result(result, file_lines)
+    else
+        preview_file_result(result, file_lines)
+    end
+end
+
+local function update_input_display()
+    if not state.layout or not state.layout.input.buf then return end
+    if not vim.api.nvim_buf_is_valid(state.layout.input.buf) then return end
+    local count_text = string.format("%d results", #state.all_results)
+    vim.api.nvim_buf_set_lines(state.layout.input.buf, 0, -1, false, { "> " .. state.query, count_text })
+end
+
 local function refresh_results()
-    if not state.buf or not vim.api.nvim_buf_is_valid(state.buf) then return end
+    if not state.layout or not state.layout.results.buf then return end
+    if not vim.api.nvim_buf_is_valid(state.layout.results.buf) then return end
     state.all_results = build_unified_results(state.query)
     local display_lines = {}
     for _, result in ipairs(state.all_results) do
         table.insert(display_lines, result.display)
     end
-    vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, display_lines)
-    local count_text = string.format("%d results", #state.all_results)
-    if state.input_buf and vim.api.nvim_buf_is_valid(state.input_buf) then
-        vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { "> " .. state.query, count_text })
-    end
-    if state.win and vim.api.nvim_win_is_valid(state.win) and #state.all_results > 0 then
-        pcall(vim.api.nvim_win_set_cursor, state.win, { 1, 0 })
+    vim.api.nvim_buf_set_lines(state.layout.results.buf, 0, -1, false, display_lines)
+    update_input_display()
+    if state.layout.results.win and vim.api.nvim_win_is_valid(state.layout.results.win) and #state.all_results > 0 then
+        pcall(vim.api.nvim_win_set_cursor, state.layout.results.win, { 1, 0 })
     end
     update_preview()
 end
 
 local function open_selected_file()
-    if not state.win or not vim.api.nvim_win_is_valid(state.win) then return end
-    local cursor = vim.api.nvim_win_get_cursor(state.win)
+    if not state.layout or not state.layout.results.win then return end
+    if not vim.api.nvim_win_is_valid(state.layout.results.win) then return end
+    local cursor = vim.api.nvim_win_get_cursor(state.layout.results.win)
     local line_num = cursor[1]
     if line_num < 1 or line_num > #state.all_results then return end
     local result = state.all_results[line_num]
     if not result or not result.file or result.file == "" then return end
     local file = result.file
     local target_line = result.line_num
-    close_finder()
+    if state.layout.close then state.layout.close() end
     vim.defer_fn(function()
         pcall(vim.cmd, "edit " .. vim.fn.fnameescape(file))
         if target_line then
             pcall(vim.api.nvim_win_set_cursor, 0, { target_line, 0 })
             vim.cmd("normal! zz")
         end
-    end, 8)
+    end, 10)
 end
 
 local function switch_to_input()
-    if state.input_win and vim.api.nvim_win_is_valid(state.input_win) then
-        vim.api.nvim_set_current_win(state.input_win)
-        vim.cmd("startinsert")
-        vim.api.nvim_win_set_cursor(state.input_win, { 1, #state.query + 2 })
-    end
+    if not state.layout or not state.layout.input.win then return end
+    if not vim.api.nvim_win_is_valid(state.layout.input.win) then return end
+    vim.api.nvim_set_current_win(state.layout.input.win)
+    vim.cmd("startinsert")
+    vim.api.nvim_win_set_cursor(state.layout.input.win, { 1, #state.query + 2 })
 end
 
 local function switch_to_results()
     vim.cmd("stopinsert")
-    if state.win and vim.api.nvim_win_is_valid(state.win) then
-        vim.api.nvim_set_current_win(state.win)
+    if not state.layout or not state.layout.results.win then return end
+    if not vim.api.nvim_win_is_valid(state.layout.results.win) then return end
+    vim.api.nvim_set_current_win(state.layout.results.win)
+end
+
+local function on_input_change()
+    if not state.layout or not state.layout.input.buf then return end
+    local lines = vim.api.nvim_buf_get_lines(state.layout.input.buf, 0, 1, false)
+    if lines and lines[1] then
+        state.query = lines[1]:gsub("^> ", "")
+        refresh_results()
     end
 end
 
-local function setup_keymaps(results_buf, input_buf)
-    vim.keymap.set({"n", "i"}, "<CR>", open_selected_file, { buffer = results_buf, silent = true })
-    vim.keymap.set("n", "<Esc>", close_finder, { buffer = results_buf, silent = true })
-    vim.keymap.set("n", "q", close_finder, { buffer = results_buf, silent = true })
+local function setup_keymaps()
+    if not state.layout then return end
+    local results_buf = state.layout.results.buf
+    local input_buf = state.layout.input.buf
+    vim.keymap.set({ "n", "i" }, "<CR>", open_selected_file, { buffer = results_buf, silent = true })
     vim.keymap.set("n", "s", switch_to_input, { buffer = results_buf, silent = true })
     vim.keymap.set("i", "<Esc>", switch_to_results, { buffer = input_buf, silent = true })
     vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
         buffer = input_buf,
-        callback = function()
-            local lines = vim.api.nvim_buf_get_lines(input_buf, 0, 1, false)
-            if lines and lines[1] then
-                state.query = lines[1]:gsub("^> ", "")
-                refresh_results()
-            end
-        end
+        callback = on_input_change
     })
 end
 
-local function setup_autocmds(results_buf)
-    vim.api.nvim_create_autocmd("WinClosed", {
-        buffer = results_buf,
-        once = true,
-        callback = close_finder
-    })
+local function setup_autocmds()
+    if not state.layout then return end
     vim.api.nvim_create_autocmd("CursorMoved", {
-        buffer = results_buf,
+        buffer = state.layout.results.buf,
         callback = update_preview
     })
+end
+
+local function initialize_display()
+    if not state.layout then return end
+    local display_lines = {}
+    for _, result in ipairs(state.all_results) do
+        table.insert(display_lines, result.display)
+    end
+    vim.api.nvim_buf_set_lines(state.layout.results.buf, 0, -1, false, display_lines)
+    vim.api.nvim_buf_set_lines(state.layout.input.buf, 0, -1, false, { "> ", string.format("%d results", #state.all_results) })
+    vim.api.nvim_set_current_win(state.layout.results.win)
+    if #state.all_results > 0 then
+        pcall(vim.api.nvim_win_set_cursor, state.layout.results.win, { 1, 0 })
+        update_preview()
+    end
 end
 
 local function open_finder()
     if is_valid_state() then return end
     local ok, files = pcall(get_all_files)
-    if not ok or not files then return end
+    if not ok or not files then vim.notify("Failed to get file list", vim.log.levels.ERROR) return end
     state.files = files
     state.query = ""
     state.all_results = build_unified_results("")
@@ -300,32 +312,23 @@ local function open_finder()
         preview_title = " Preview ",
         input_title = "",
         input_height = 3,
+        on_close = reset_state
     })
     if not ok_layout then vim.notify(("Failed to create finder windows: %s"):format(tostring(layout)), vim.log.levels.ERROR) return end
-    state.buf = layout.results.buf
-    state.win = layout.results.win
-    state.preview_buf = layout.preview.buf
-    state.preview_win = layout.preview.win
-    state.input_buf = layout.input.buf
-    state.input_win = layout.input.win
+    state.layout = layout
     state.is_open = true
-    local display_lines = {}
-    for _, result in ipairs(state.all_results) do
-        table.insert(display_lines, result.display)
-    end
-    vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, display_lines)
-    vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { "> ", string.format("%d results", #state.all_results) })
-    setup_keymaps(state.buf, state.input_buf)
-    setup_autocmds(state.buf)
-    vim.api.nvim_set_current_win(state.win)
-    if #state.all_results > 0 then
-        pcall(vim.api.nvim_win_set_cursor, state.win, { 1, 0 })
-        update_preview()
-    end
+    setup_keymaps()
+    setup_autocmds()
+    initialize_display()
 end
 
 function Finder.toggle()
-    if is_valid_state() then close_finder() return end
+    if is_valid_state() then
+        if state.layout and state.layout.close then
+            state.layout.close()
+        end
+        return
+    end
     open_finder()
 end
 

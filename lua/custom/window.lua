@@ -151,7 +151,7 @@ function Window.create_split_two(opts)
     if results_width < 10 or preview_width < 10 or results_height < 5 then
         error("Window dimensions too small.")
     end
-    return {
+    local layout = {
         results = create_panel({
             width = results_width,
             height = results_height,
@@ -177,6 +177,32 @@ function Window.create_split_two(opts)
             title = opts.input_title or "",
         })
     }
+    local on_close = opts.on_close or function() end
+    local close_called = false
+    local function close_all()
+        if close_called then return end
+        close_called = true
+        Window.safe_close_window(layout.results.win)
+        Window.safe_close_window(layout.preview.win)
+        Window.safe_close_window(layout.input.win)
+        Window.safe_delete_buffer(layout.results.buf)
+        Window.safe_delete_buffer(layout.preview.buf)
+        Window.safe_delete_buffer(layout.input.buf)
+        vim.schedule(function()
+            pcall(vim.cmd, "redraw!")
+            pcall(vim.cmd, "mode")
+            on_close()
+        end)
+    end
+    vim.keymap.set("n", "<Esc>", close_all, { buffer = layout.results.buf, silent = true })
+    vim.keymap.set("n", "q", close_all, { buffer = layout.results.buf, silent = true })
+    vim.api.nvim_create_autocmd("WinClosed", {
+        buffer = layout.results.buf,
+        once = true,
+        callback = close_all
+    })
+    layout.close = close_all
+    return layout
 end
 
 function Window.create_split_three(opts)
@@ -197,7 +223,7 @@ function Window.create_split_three(opts)
     if left_width < 10 or middle_width < 10 or right_width < 10 then
         error("Panel dimensions too small.")
     end
-    return {
+    local layout = {
         left = create_panel({
             width = left_width,
             height = total_height,
@@ -223,6 +249,32 @@ function Window.create_split_three(opts)
             title = opts.right_title or " Right ",
         })
     }
+    local on_close = opts.on_close or function() end
+    local close_called = false
+    local function close_all()
+        if close_called then return end
+        close_called = true
+        Window.safe_close_window(layout.left.win)
+        Window.safe_close_window(layout.middle.win)
+        Window.safe_close_window(layout.right.win)
+        Window.safe_delete_buffer(layout.left.buf)
+        Window.safe_delete_buffer(layout.middle.buf)
+        Window.safe_delete_buffer(layout.right.buf)
+        vim.schedule(function()
+            pcall(vim.cmd, "redraw!")
+            pcall(vim.cmd, "mode")
+            on_close()
+        end)
+    end
+    vim.keymap.set("n", "<Esc>", close_all, { buffer = layout.left.buf, silent = true })
+    vim.keymap.set("n", "q", close_all, { buffer = layout.left.buf, silent = true })
+    vim.api.nvim_create_autocmd("WinClosed", {
+        buffer = layout.left.buf,
+        once = true,
+        callback = close_all
+    })
+    layout.close = close_all
+    return layout
 end
 
 function Window.safe_delete_buffer(buf)

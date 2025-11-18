@@ -469,16 +469,13 @@ local function apply_theme(theme_name)
     end
 end
 
-local function close_picker()
+function Theme.picker()
     if Theme.picker_state.is_open then
         Window.safe_close_window(Theme.picker_state.win)
         Window.safe_delete_buffer(Theme.picker_state.buf)
         Theme.picker_state = { buf = nil, win = nil, is_open = false }
+        return
     end
-end
-
-function Theme.picker()
-    if Theme.picker_state.is_open then close_picker() return end
     local display_names = {
         gruvbox_dark = "Gruvbox Dark",
         gruvbox_light = "Gruvbox Light",
@@ -497,7 +494,11 @@ function Theme.picker()
         title = " Options ",
         width = 30,
         callback = function(selected)
-            close_picker()
+            if Theme.picker_state.is_open then
+                Window.safe_close_window(Theme.picker_state.win)
+                Window.safe_delete_buffer(Theme.picker_state.buf)
+                Theme.picker_state = { buf = nil, win = nil, is_open = false }
+            end
             if selected then
                 local clean_name = selected:gsub(" ✓$", "")
                 for theme_key, display_name in pairs(display_names) do
