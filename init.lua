@@ -34,10 +34,17 @@ vim.keymap.set("n", "<leader>r", reload)
 vim.api.nvim_create_user_command("ReloadConfig", reload, {})
 
 vim.keymap.set("n", "<leader>f", function()
-        local start_line = 0
-        local end_line = vim.api.nvim_buf_line_count(0) - 1
-        vim.api.nvim_buf_call(0, function()
-            vim.cmd(string.format("%d,%dnormal! ==", start_line + 1, end_line + 1))
-        end)
-        vim.cmd("retab")
+    local start_line = 0
+    local end_line = vim.api.nvim_buf_line_count(0) - 1
+    vim.api.nvim_buf_call(0, function()
+        vim.cmd(string.format("%d,%dnormal! ==", start_line + 1, end_line + 1))
     end)
+    vim.cmd("retab")
+end)
+
+vim.cmd([[
+    highlight Normal guibg=NONE ctermbg=NONE
+    highlight NonText guibg=NONE ctermbg=NONE
+    highlight SignColumn guibg=NONE ctermbg=NONE
+    highlight EndOfBuffer guibg=NONE ctermbg=NONE
+]])
