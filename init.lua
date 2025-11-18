@@ -1,42 +1,13 @@
-vim.g.mapleader = " "
-
-vim.opt.number = true
-vim.opt.relativenumber = true
-vim.opt.clipboard = "unnamedplus"
-vim.opt.wrap = false
-vim.opt.scrolloff = 8
-vim.opt.shortmess:append("I")
-vim.opt.isfname:append("@-@")
-
-vim.g.netrw_banner = 0
-vim.g.netrw_winsize = 25
-vim.g.netrw_liststyle = 3
-
-vim.opt.tabstop = 4
-vim.opt.softtabstop = 4
-vim.opt.shiftwidth = 4
-vim.opt.expandtab = true
-vim.opt.smartindent = true
-
-vim.opt.swapfile = false
-vim.opt.backup = false
-vim.opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
-vim.opt.undofile = true
-
-vim.opt.hlsearch = true
-vim.opt.incsearch = true
-
-vim.opt.updatetime = 300
-vim.g.python3_host_prog = "/usr/bin/pynvim-python"
-
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
     vim.fn.system({ "git", "clone", "--filter=blob:none", "https://github.com/folke/lazy.nvim.git", "--branch=stable", lazypath })
 end
-vim.opt.rtp = vim.opt.rtp ^ lazypath
+vim.opt.rtp:prepend(lazypath)
 
+require("config.options")
 require("config.keymaps")
 require("custom")
+
 require("lazy").setup("plugins", {
     rocks = {
         enabled = false,
@@ -44,22 +15,29 @@ require("lazy").setup("plugins", {
     },
 })
 
-local function reload_custom()
-    for module_name, _ in pairs(package.loaded --[[@as table]]) do
-        if module_name:match("^custom") or module_name:match("^config") then
-            package.loaded[module_name] = nil
+local function reload()
+    for name in pairs(package.loaded) do
+        if name:match("^custom") or name:match("^config") then
+            package.loaded[name] = nil
         end
     end
     local ok, err = pcall(function()
+        require("config.options")
         require("config.keymaps")
         require("custom")
     end)
-    if not ok then
-        vim.notify("Reload failed: " .. tostring(err), vim.log.levels.ERROR)
-        return
-    end
-    vim.notify("Modules reloaded.", vim.log.levels.INFO)
+    if not ok then vim.notify("Reload failed: " .. err, vim.log.levels.ERROR) return end
+    vim.notify("Config/modules reloaded.", vim.log.levels.INFO)
 end
 
-vim.keymap.set("n", "<leader>r", reload_custom)
-vim.api.nvim_create_user_command("ReloadConfig", reload_custom, {})
+vim.keymap.set("n", "<leader>r", reload)
+vim.api.nvim_create_user_command("ReloadConfig", reload, {})
+
+vim.keymap.set("n", "<leader>f", function()
+        local start_line = 0
+        local end_line = vim.api.nvim_buf_line_count(0) - 1
+        vim.api.nvim_buf_call(0, function()
+            vim.cmd(string.format("%d,%dnormal! ==", start_line + 1, end_line + 1))
+        end)
+        vim.cmd("retab")
+    end)

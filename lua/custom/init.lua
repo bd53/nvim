@@ -1,9 +1,6 @@
 local modules = {
-    "comments",
     "finder",
     "git",
-    "themes",
-    "status",
     "window",
 }
 
