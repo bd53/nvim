@@ -7,7 +7,7 @@ vim.opt.wrap = false
 vim.opt.scrolloff = 8
 vim.opt.shortmess:append("I")
 vim.opt.isfname:append("@-@")
-vim.opt.showtabline = 1
+vim.opt.laststatus = 3
 
 vim.g.netrw_banner = 0
 vim.g.netrw_winsize = 25
