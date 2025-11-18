@@ -19,19 +19,17 @@ vim.keymap.set("n", "<c-n>", "<cmd>bnext<CR>", opts)
 vim.keymap.set("n", "<c-b>", "<cmd>bprevious<CR>", opts)
 vim.keymap.set("n", "<c-d>", "<cmd>bdelete<CR>", opts)
 
-vim.keymap.set("n", "<leader>cb", function() require("custom.themes").toggle() end, opts)
+vim.keymap.set("n", "<leader>tc", function() require("custom.themes").toggle() end, opts)
 vim.keymap.set("n", "<leader>tp", function() require("custom.themes").picker() end, opts)
 vim.keymap.set("n", "<c-f>", function() require("custom.finder").toggle() end, opts)
 vim.keymap.set("n", "<leader>/", function() require("custom.comments").toggle() end, opts)
 
-vim.keymap.set("n", "<leader>gb", function() require("custom.git").toggle() end, opts)
+vim.keymap.set("n", "<leader>gb", function() require("custom.git").blame() end, opts)
 vim.keymap.set("n", "<leader>gdp", function() require("custom.git").changes() end, opts)
 vim.keymap.set("n", "<leader>gh", function() require("custom.git").history() end, opts)
-vim.keymap.set("n", "<leader>gc", function() require("custom.git").commit() end, opts)
-vim.keymap.set("n", "<leader>gp", function() require("custom.git").push() end, opts)
 
 local term_win = nil
-vim.keymap.set("n", "<leader>t", function()
+vim.keymap.set("n", "<leader>ot", function()
     if term_win and vim.api.nvim_win_is_valid(term_win) then
         vim.api.nvim_win_close(term_win, true)
         term_win = nil

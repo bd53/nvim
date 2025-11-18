@@ -20,9 +20,6 @@ local function setup_highlights()
         local group_name = "CommentKeyword" .. kw.word:gsub("@", "")
         vim.cmd(string.format("highlight %s guifg=%s gui=bold", group_name, kw.color))
     end
-end
-
-local function highlight_keywords()
     local ft = vim.bo.filetype
     local comment_str = Config.comment_strings[ft] or "//"
     for _, kw in ipairs(Config.keywords) do
@@ -30,6 +27,14 @@ local function highlight_keywords()
         local pattern = vim.pesc(comment_str) .. ".*" .. vim.pesc(kw.word)
         vim.fn.matchadd(hl_group, pattern)
     end
+    vim.keymap.set("n", "<leader>f", function()
+        local start_line = 0
+        local end_line = vim.api.nvim_buf_line_count(0) - 1
+        vim.api.nvim_buf_call(0, function()
+            vim.cmd(string.format("%d,%dnormal! ==", start_line + 1, end_line + 1))
+        end)
+        vim.cmd("retab")
+    end)
 end
 
 function Comments.toggle()
@@ -45,18 +50,6 @@ function Comments.toggle()
     vim.api.nvim_set_current_line(comment_str .. " " .. line)
 end
 
-local function format_entire_buffer()
-    local start_line = 0
-    local end_line = vim.api.nvim_buf_line_count(0) - 1
-    vim.api.nvim_buf_call(0, function()
-        vim.cmd(string.format("%d,%dnormal! ==", start_line + 1, end_line + 1))
-    end)
-    vim.cmd("retab")
-end
-
-vim.keymap.set("n", "<leader>f", format_entire_buffer)
-
 setup_highlights()
-highlight_keywords()
 
 return Comments

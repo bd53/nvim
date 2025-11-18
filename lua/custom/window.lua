@@ -1,17 +1,5 @@
 local Window = {}
 
-local function setup_buffer(buf)
-    vim.bo[buf].buftype = "nofile"
-    vim.bo[buf].bufhidden = "wipe"
-    vim.bo[buf].swapfile = false
-    vim.bo[buf].buflisted = false
-end
-
-local function setup_window(win)
-    pcall(vim.api.nvim_win_set_option, win, "winblend", 0)
-    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = win })
-end
-
 local function create_window(buf, config)
     local win = vim.api.nvim_open_win(buf, config.enter or false, {
         relative = "editor",
@@ -24,7 +12,8 @@ local function create_window(buf, config)
         title = config.title or "",
         title_pos = config.title_pos or "center",
     })
-    setup_window(win)
+    pcall(vim.api.nvim_win_set_option, win, "winblend", 0)
+    pcall(vim.api.nvim_set_option_value, "winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = win })
     return win
 end
 
@@ -32,12 +21,35 @@ local function get_centered_pos(width, height)
     return { row = math.floor((vim.o.lines - height) / 2), col = math.floor((vim.o.columns - width) / 2) }
 end
 
+local function create_panel(config)
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[buf].buftype = "nofile"
+    vim.bo[buf].bufhidden = "wipe"
+    vim.bo[buf].swapfile = false
+    vim.bo[buf].buflisted = false
+    local win = create_window(buf, config)
+    return { buf = buf, win = win }
+end
+
+local function safe_cleanup(win, buf)
+    if win and vim.api.nvim_win_is_valid(win) then
+        pcall(vim.api.nvim_win_close, win, true)
+    end
+    if buf and vim.api.nvim_buf_is_valid(buf) then
+        pcall(vim.api.nvim_buf_set_option, buf, "modified", false)
+        pcall(vim.api.nvim_buf_delete, buf, { force = true })
+    end
+end
+
 function Window.create_float(opts)
     opts = opts or {}
     local width = opts.width or 60
     local height = opts.height or 10
     local buf = vim.api.nvim_create_buf(false, true)
-    setup_buffer(buf)
+    vim.bo[buf].buftype = "nofile"
+    vim.bo[buf].bufhidden = "wipe"
+    vim.bo[buf].swapfile = false
+    vim.bo[buf].buflisted = false
     local pos = get_centered_pos(width, height)
     local win = create_window(buf, {
         width = width,
@@ -50,15 +62,6 @@ function Window.create_float(opts)
         enter = opts.enter ~= false
     })
     return buf, win
-end
-
-local function close_with_callback(win, buf, parent_win, callback, value)
-    vim.api.nvim_win_close(win, true)
-    if parent_win and vim.api.nvim_win_is_valid(parent_win) then
-        vim.api.nvim_set_current_win(parent_win)
-        vim.cmd("stopinsert")
-    end
-    callback(value)
 end
 
 function Window.create_input(opts)
@@ -76,12 +79,20 @@ function Window.create_input(opts)
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { opts.default_text })
     end
     vim.cmd("startinsert")
+    local function close_with_callback(value)
+        vim.api.nvim_win_close(win, true)
+        if parent_win and vim.api.nvim_win_is_valid(parent_win) then
+            vim.api.nvim_set_current_win(parent_win)
+            vim.cmd("stopinsert")
+        end
+        callback(value)
+    end
     local function on_submit()
         local text = vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] or ""
-        close_with_callback(win, buf, parent_win, callback, text)
+        close_with_callback(text)
     end
     local function on_cancel()
-        close_with_callback(win, buf, parent_win, callback, nil)
+        close_with_callback(nil)
     end
     vim.keymap.set({ "n", "i" }, "<CR>", on_submit, { buffer = buf, silent = true })
     vim.keymap.set({ "n", "i" }, "<Esc>", on_cancel, { buffer = buf, silent = true })
@@ -106,11 +117,19 @@ function Window.create_select(opts)
     end
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, display_lines)
     vim.bo[buf].modifiable = false
+    local function close_with_callback(value)
+        vim.api.nvim_win_close(win, true)
+        if parent_win and vim.api.nvim_win_is_valid(parent_win) then
+            vim.api.nvim_set_current_win(parent_win)
+            vim.cmd("stopinsert")
+        end
+        callback(value)
+    end
     local function select_item(idx)
-        close_with_callback(win, buf, parent_win, callback, items[idx])
+        close_with_callback(items[idx])
     end
     local function cancel()
-        close_with_callback(win, buf, parent_win, callback, nil)
+        close_with_callback(nil)
     end
     vim.keymap.set("n", "<CR>", function()
         local line = vim.api.nvim_win_get_cursor(win)[1]
@@ -124,13 +143,6 @@ function Window.create_select(opts)
         end, { buffer = buf, silent = true })
     end
     return buf, win
-end
-
-local function create_panel(config)
-    local buf = vim.api.nvim_create_buf(false, true)
-    setup_buffer(buf)
-    local win = create_window(buf, config)
-    return { buf = buf, win = win }
 end
 
 function Window.create_split_two(opts)
@@ -182,12 +194,9 @@ function Window.create_split_two(opts)
     local function close_all()
         if close_called then return end
         close_called = true
-        Window.safe_close_window(layout.results.win)
-        Window.safe_close_window(layout.preview.win)
-        Window.safe_close_window(layout.input.win)
-        Window.safe_delete_buffer(layout.results.buf)
-        Window.safe_delete_buffer(layout.preview.buf)
-        Window.safe_delete_buffer(layout.input.buf)
+        safe_cleanup(layout.results.win, layout.results.buf)
+        safe_cleanup(layout.preview.win, layout.preview.buf)
+        safe_cleanup(layout.input.win, layout.input.buf)
         vim.schedule(function()
             pcall(vim.cmd, "redraw!")
             pcall(vim.cmd, "mode")
@@ -254,12 +263,9 @@ function Window.create_split_three(opts)
     local function close_all()
         if close_called then return end
         close_called = true
-        Window.safe_close_window(layout.left.win)
-        Window.safe_close_window(layout.middle.win)
-        Window.safe_close_window(layout.right.win)
-        Window.safe_delete_buffer(layout.left.buf)
-        Window.safe_delete_buffer(layout.middle.buf)
-        Window.safe_delete_buffer(layout.right.buf)
+        safe_cleanup(layout.left.win, layout.left.buf)
+        safe_cleanup(layout.middle.win, layout.middle.buf)
+        safe_cleanup(layout.right.win, layout.right.buf)
         vim.schedule(function()
             pcall(vim.cmd, "redraw!")
             pcall(vim.cmd, "mode")
@@ -275,19 +281,6 @@ function Window.create_split_three(opts)
     })
     layout.close = close_all
     return layout
-end
-
-function Window.safe_delete_buffer(buf)
-    if buf and vim.api.nvim_buf_is_valid(buf) then
-        pcall(vim.api.nvim_buf_set_option, buf, "modified", false)
-        pcall(vim.api.nvim_buf_delete, buf, { force = true })
-    end
-end
-
-function Window.safe_close_window(win)
-    if win and vim.api.nvim_win_is_valid(win) then
-        pcall(vim.api.nvim_win_close, win, true)
-    end
 end
 
 return Window
