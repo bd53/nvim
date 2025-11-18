@@ -169,9 +169,9 @@ local function changes_helper()
     if not main_win or not vim.api.nvim_win_is_valid(main_win) then return end
     local cursor = vim.api.nvim_win_get_cursor(main_win)
     local line_num = cursor[1]
-    if line_num < 1 or line_num > #changes_state.items then vim.api.nvim_buf_set_lines(changes_state.layout.preview.buf, 0, -1, false, { "No changes to display." }) return end
+    if line_num < 1 or line_num > #changes_state.items then vim.api.nvim_buf_set_lines(changes_state.layout.preview.buf, 0, -1, false, {}) return end
     local item = changes_state.items[line_num]
-    if not item or not item.file then vim.api.nvim_buf_set_lines(changes_state.layout.preview.buf, 0, -1, false, { "No changes to display." }) return end
+    if not item or not item.file then vim.api.nvim_buf_set_lines(changes_state.layout.preview.buf, 0, -1, false, {}) return end
     local staged_diff = run_git_cmd(string.format("git diff --cached -- '%s'", item.file))
     local unstaged_diff = run_git_cmd(string.format("git diff -- '%s'", item.file))
     local lines = {}
@@ -197,8 +197,7 @@ local function changes_helper()
             vim.list_extend(lines, content)
         end
     end
-    local diff_lines = #lines == 0 and { "No changes to display." } or lines
-    vim.api.nvim_buf_set_lines(changes_state.layout.preview.buf, 0, -1, false, diff_lines)
+    vim.api.nvim_buf_set_lines(changes_state.layout.preview.buf, 0, -1, false, #lines > 0 and lines or {})
     pcall(vim.api.nvim_buf_set_option, changes_state.layout.preview.buf, "filetype", "diff")
 end
 
@@ -221,8 +220,8 @@ function Git.changes()
         width_ratio = 0.8,
         height_ratio = 0.7,
         preview_width_ratio = 0.6,
-        results_title = string.format(" Changed Files (%d) ", #files),
-        preview_title = " Diff Preview ",
+        results_title = string.format(" Edited (%d) ", #files),
+        preview_title = " Preview ",
         input_title = "",
         input_height = 1,
         on_close = function()
@@ -237,7 +236,7 @@ function Git.changes()
     if layout.input and layout.input.win then
         pcall(vim.api.nvim_win_close, layout.input.win, true)
     end
-    local display_lines = #files == 0 and { "No changes to display." } or vim.tbl_map(function(f) return f.display end, files)
+    local display_lines = #files > 0 and vim.tbl_map(function(f) return f.display end, files) or {}
     vim.api.nvim_buf_set_lines(changes_state.layout.results.buf, 0, -1, false, display_lines)
     setup_navigation_keymaps(changes_state.layout.results.buf, changes_state.layout.results.win, changes_state.items, changes_helper, function()
         local main_win = changes_state.layout.results.win
@@ -279,27 +278,27 @@ local function history_helper()
     local cursor = vim.api.nvim_win_get_cursor(main_win)
     local line_num = cursor[1]
     if line_num < 1 or line_num > #history_state.items then
-        vim.api.nvim_buf_set_lines(history_state.layout.middle.buf, 0, -1, false, { "Commit details." })
-        vim.api.nvim_buf_set_lines(history_state.layout.right.buf, 0, -1, false, { "Commit changes." })
+        vim.api.nvim_buf_set_lines(history_state.layout.middle.buf, 0, -1, false, {})
+        vim.api.nvim_buf_set_lines(history_state.layout.right.buf, 0, -1, false, {})
         return
     end
     local item = history_state.items[line_num]
     if not item or not item.hash then
-        vim.api.nvim_buf_set_lines(history_state.layout.middle.buf, 0, -1, false, { "Commit details." })
-        vim.api.nvim_buf_set_lines(history_state.layout.right.buf, 0, -1, false, { "Commit changes." })
+        vim.api.nvim_buf_set_lines(history_state.layout.middle.buf, 0, -1, false, {})
+        vim.api.nvim_buf_set_lines(history_state.layout.right.buf, 0, -1, false, {})
         return
     end
     local details_output = run_git_cmd(string.format("git show --stat --pretty=format:'Commit: %%H%%nAuthor: %%an <%%ae>%%nDate: %%ar (%%ad)%%n%%nMessage: %%s%%n%%b%%n' %s", item.hash))
-    local details = details_output or { "Failed to load commit details." }
+    local details = details_output or {}
     vim.api.nvim_buf_set_lines(history_state.layout.middle.buf, 0, -1, false, details)
     pcall(vim.api.nvim_buf_set_option, history_state.layout.middle.buf, "filetype", "git")
     local diff_output = run_git_cmd(string.format("git show --pretty=format:'' %s", item.hash))
-    local diff = { "Failed to load commit diff." }
+    local diff = {}
     if diff_output then
         if #diff_output > 0 and diff_output[1] == "" then
             table.remove(diff_output, 1)
         end
-        diff = #diff_output == 0 and { "No changes in this commit." } or diff_output
+        diff = diff_output
     end
     vim.api.nvim_buf_set_lines(history_state.layout.right.buf, 0, -1, false, diff)
     pcall(vim.api.nvim_buf_set_option, history_state.layout.right.buf, "filetype", "diff")
@@ -328,7 +327,7 @@ function Git.history()
         left_width_ratio = 0.30,
         middle_width_ratio = 0.35,
         left_title = string.format(" Commits (%d) ", #commits),
-        middle_title = " Commit Details ",
+        middle_title = " Details ",
         right_title = " Changes ",
         on_close = function()
             history_state.layout = nil
@@ -339,7 +338,7 @@ function Git.history()
     if not ok_layout then vim.notify("Failed to create history windows: " .. tostring(layout), vim.log.levels.ERROR) return end
     history_state.layout = layout
     history_state.is_open = true
-    local display_lines = #commits == 0 and { "No commit history found." } or vim.tbl_map(function(c) return c.display end, commits)
+    local display_lines = #commits > 0 and vim.tbl_map(function(c) return c.display end, commits) or {}
     vim.api.nvim_buf_set_lines(history_state.layout.left.buf, 0, -1, false, display_lines)
     setup_navigation_keymaps(history_state.layout.left.buf, history_state.layout.left.win, history_state.items, history_helper, function()
         local main_win = history_state.layout.left.win

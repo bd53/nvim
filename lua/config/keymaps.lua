@@ -25,7 +25,7 @@ vim.keymap.set("n", "<c-f>", function() require("custom.finder").toggle() end, o
 vim.keymap.set("n", "<leader>/", function() require("custom.comments").toggle() end, opts)
 
 vim.keymap.set("n", "<leader>gb", function() require("custom.git").blame() end, opts)
-vim.keymap.set("n", "<leader>gdp", function() require("custom.git").changes() end, opts)
+vim.keymap.set("n", "<leader>gc", function() require("custom.git").changes() end, opts)
 vim.keymap.set("n", "<leader>gh", function() require("custom.git").history() end, opts)
 
 vim.keymap.set("n", "<leader>cd", function()

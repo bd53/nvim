@@ -149,7 +149,7 @@ function Finder.toggle()
         width_ratio = config.window.width_ratio,
         height_ratio = config.window.height_ratio,
         preview_width_ratio = config.preview.width_ratio,
-        results_title = " Search ",
+        results_title = " Information ",
         preview_title = " Preview ",
         input_title = "",
         input_height = 3,
