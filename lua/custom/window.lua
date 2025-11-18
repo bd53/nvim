@@ -75,9 +75,7 @@ function Window.create_input(opts)
         border = "rounded"
     })
     vim.bo[buf].modifiable = true
-    if opts.default_text and opts.default_text ~= "" then
-        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { opts.default_text })
-    end
+    if opts.default_text and opts.default_text ~= "" then vim.api.nvim_buf_set_lines(buf, 0, -1, false, { opts.default_text }) end
     vim.cmd("startinsert")
     local function close_with_callback(value)
         vim.api.nvim_win_close(win, true)
@@ -87,13 +85,8 @@ function Window.create_input(opts)
         end
         callback(value)
     end
-    local function on_submit()
-        local text = vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] or ""
-        close_with_callback(text)
-    end
-    local function on_cancel()
-        close_with_callback(nil)
-    end
+    local function on_submit() close_with_callback(vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1] or "") end
+    local function on_cancel() close_with_callback(nil) end
     vim.keymap.set({ "n", "i" }, "<CR>", on_submit, { buffer = buf, silent = true })
     vim.keymap.set({ "n", "i" }, "<Esc>", on_cancel, { buffer = buf, silent = true })
     return buf, win
@@ -125,16 +118,9 @@ function Window.create_select(opts)
         end
         callback(value)
     end
-    local function select_item(idx)
-        close_with_callback(items[idx])
-    end
-    local function cancel()
-        close_with_callback(nil)
-    end
-    vim.keymap.set("n", "<CR>", function()
-        local line = vim.api.nvim_win_get_cursor(win)[1]
-        select_item(line)
-    end, { buffer = buf, silent = true })
+    local function select_item(idx) close_with_callback(items[idx]) end
+    local function cancel() close_with_callback(nil) end
+    vim.keymap.set("n", "<CR>", function() select_item(vim.api.nvim_win_get_cursor(win)[1]) end, { buffer = buf, silent = true })
     vim.keymap.set("n", "<Esc>", cancel, { buffer = buf, silent = true })
     vim.keymap.set("n", "q", cancel, { buffer = buf, silent = true })
     for i = 1, #items do
@@ -153,16 +139,12 @@ function Window.create_split_two(opts)
     local total_width = math.floor(vim.o.columns * width_ratio)
     local total_height = math.floor(vim.o.lines * height_ratio)
     local pos = get_centered_pos(total_width, total_height)
-    if total_width < 40 or total_height < 10 then
-        error("Window too small.")
-    end
+    if total_width < 40 or total_height < 10 then error("Window too small.") end
     local results_width = math.floor(total_width * (1 - preview_width_ratio)) - 1
     local preview_width = total_width - results_width - 1
     local input_height = opts.input_height or 3
     local results_height = total_height - input_height - 1
-    if results_width < 10 or preview_width < 10 or results_height < 5 then
-        error("Window dimensions too small.")
-    end
+    if results_width < 10 or preview_width < 10 or results_height < 5 then error("Window dimensions too small.") end
     local layout = {
         results = create_panel({
             width = results_width,
@@ -223,15 +205,11 @@ function Window.create_split_three(opts)
     local total_width = math.floor(vim.o.columns * width_ratio)
     local total_height = math.floor(vim.o.lines * height_ratio)
     local pos = get_centered_pos(total_width, total_height)
-    if total_width < 60 or total_height < 20 then
-        error("Window too small for three-panel layout.")
-    end
+    if total_width < 60 or total_height < 20 then error("Window too small for three-panel layout.") end
     local left_width = math.floor(total_width * left_width_ratio)
     local middle_width = math.floor(total_width * middle_width_ratio)
     local right_width = total_width - left_width - middle_width - 2
-    if left_width < 10 or middle_width < 10 or right_width < 10 then
-        error("Panel dimensions too small.")
-    end
+    if left_width < 10 or middle_width < 10 or right_width < 10 then error("Panel dimensions too small.") end
     local layout = {
         left = create_panel({
             width = left_width,
