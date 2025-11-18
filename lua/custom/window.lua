@@ -66,7 +66,7 @@ end
 
 function Window.create_input(opts)
     opts = opts or {}
-    local callback = opts.callback or function() end
+    local callback = opts.callback or function(value) local _ = value end
     local parent_win = opts.parent_win
     local buf, win = Window.create_float({
         width = opts.width or 60,
@@ -102,7 +102,7 @@ end
 function Window.create_select(opts)
     opts = opts or {}
     local items = opts.items or {}
-    local callback = opts.callback or function() end
+    local callback = opts.callback or function(value) local _ = value end
     local parent_win = opts.parent_win
     local buf, win = Window.create_float({
         width = opts.width or 40,

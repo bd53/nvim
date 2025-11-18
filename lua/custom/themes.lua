@@ -114,17 +114,7 @@ local function load_theme()
     end
 end
 
-local function apply_theme(theme_name)
-    if theme_name then
-        Theme.current_theme = theme_name
-        setup_highlights()
-        save_theme()
-        if _G.statusline_update_colors then _G.statusline_update_colors() end
-        vim.notify(("Theme: %s"):format(Theme.current_theme), vim.log.levels.WARN)
-    end
-end
-
-function setup_highlights()
+local function setup_highlights()
     local c = get_colors()
     local set = vim.api.nvim_set_hl
     if Theme.current_theme == "gruvbox_light" or Theme.current_theme == "solarized_light" or Theme.current_theme == "vim_classic" then
@@ -295,6 +285,16 @@ function setup_highlights()
     set(0, "netrwHelpCmd", { fg = c.aqua })
     set(0, "netrwCmdSep", { fg = c.fg3 })
     set(0, "netrwVersion", { fg = c.green })
+end
+
+local function apply_theme(theme_name)
+    if theme_name then
+        Theme.current_theme = theme_name
+        setup_highlights()
+        save_theme()
+        if _G.statusline_update_colors then _G.statusline_update_colors() end
+        vim.notify(("Theme: %s"):format(Theme.current_theme), vim.log.levels.WARN)
+    end
 end
 
 function Theme.toggle()
