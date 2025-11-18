@@ -28,18 +28,6 @@ vim.keymap.set("n", "<leader>gb", function() require("custom.git").blame() end, 
 vim.keymap.set("n", "<leader>gdp", function() require("custom.git").changes() end, opts)
 vim.keymap.set("n", "<leader>gh", function() require("custom.git").history() end, opts)
 
-local term_win = nil
-vim.keymap.set("n", "<leader>ot", function()
-    if term_win and vim.api.nvim_win_is_valid(term_win) then
-        vim.api.nvim_win_close(term_win, true)
-        term_win = nil
-        return
-    end
-    vim.cmd("vsplit | terminal")
-    term_win = vim.api.nvim_get_current_win()
-end, opts)
-vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", opts)
-
 vim.keymap.set("n", "<leader>cd", function()
     vim.ui.input({ prompt = "Change directory: " }, function(input)
         if not input then return end
