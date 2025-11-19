@@ -30,8 +30,7 @@ local function get_all_files()
         for _, pattern in ipairs(config.ignored_patterns) do
             table.insert(exclude_args, string.format("-path './%s' -prune -o", pattern))
         end
-        local cmd = string.format("find . %s -type f -print 2>/dev/null", table.concat(exclude_args, " "))
-        return vim.fn.systemlist(cmd)
+        return vim.fn.systemlist(string.format("find . %s -type f -print 2>/dev/null", table.concat(exclude_args, " ")))
     end
     local files = {}
     local stack = { "." }
@@ -65,9 +64,8 @@ local function search_and_filter(query)
         return results
     end
     local results = {}
-    local normalized_query = query:lower()
     for _, file in ipairs(state.files) do
-        if file:lower():find(normalized_query, 1, true) then
+        if file:lower():find(query:lower(), 1, true) then
             table.insert(results, { type = "file", file = file, display = "[F] " .. file })
         end
     end
@@ -78,15 +76,13 @@ local function search_and_filter(query)
         for _, pattern in ipairs(config.ignored_patterns) do
             table.insert(exclude_args, string.format("--glob '!%s'", pattern))
         end
-        local cmd = string.format("rg --line-number --no-heading --color=never %s '%s' 2>/dev/null", table.concat(exclude_args, " "), escaped_query)
-        grep_output = vim.fn.systemlist(cmd)
+        grep_output = vim.fn.systemlist(string.format("rg --line-number --no-heading --color=never %s '%s' 2>/dev/null", table.concat(exclude_args, " "), escaped_query))
     elseif vim.fn.executable("grep") == 1 then
         local exclude_args = {}
         for _, pattern in ipairs(config.ignored_patterns) do
             table.insert(exclude_args, string.format("--exclude-dir='%s'", pattern))
         end
-        local cmd = string.format("grep -rn %s '%s' . 2>/dev/null", table.concat(exclude_args, " "), escaped_query)
-        grep_output = vim.fn.systemlist(cmd)
+        grep_output = vim.fn.systemlist(string.format("grep -rn %s '%s' . 2>/dev/null", table.concat(exclude_args, " "), escaped_query))
     end
     for _, line in ipairs(grep_output) do
         local file, line_num, content = line:match("^([^:]+):(%d+):(.*)$")
@@ -105,20 +101,17 @@ local function finder_helper()
     if not state.layout.preview.buf or not vim.api.nvim_buf_is_valid(state.layout.preview.buf) then return end
     local cursor = vim.api.nvim_win_get_cursor(state.layout.results.win)
     local line_num = cursor[1]
-    if line_num < 1 or line_num > #state.all_results then vim.api.nvim_buf_set_lines(state.layout.preview.buf, 0, -1, false, { "Preview." }) return end
+    if line_num < 1 or line_num > #state.all_results then vim.api.nvim_buf_set_lines(state.layout.preview.buf, 0, -1, false, {}) return end
     local result = state.all_results[line_num]
-    if not result then vim.api.nvim_buf_set_lines(state.layout.preview.buf, 0, -1, false, { "Preview." }) return end
+    if not result then vim.api.nvim_buf_set_lines(state.layout.preview.buf, 0, -1, false, {}) return end
     local ok, file_lines = pcall(vim.fn.readfile, result.file)
-    if not ok or not file_lines then vim.api.nvim_buf_set_lines(state.layout.preview.buf, 0, -1, false, { "Cannot preview file." }) return end
+    if not ok or not file_lines then vim.api.nvim_buf_set_lines(state.layout.preview.buf, 0, -1, false, {}) return end
     if result.type == "grep" then
-        local context_before = 5
-        local context_after = 5
-        local start_line = math.max(1, result.line_num - context_before)
-        local end_line = math.min(#file_lines, result.line_num + context_after)
+        local start_line = math.max(1, result.line_num - 5)
+        local end_line = math.min(#file_lines, result.line_num + 5)
         local preview_lines = {}
         for i = start_line, end_line do
-            local prefix = (i == result.line_num) and ">>> " or "    "
-            table.insert(preview_lines, string.format("%s%4d: %s", prefix, i, file_lines[i]))
+            table.insert(preview_lines, string.format("%s%4d: %s", (i == result.line_num) and ">>> " or "    ", i, file_lines[i]))
         end
         vim.api.nvim_buf_set_lines(state.layout.preview.buf, 0, -1, false, preview_lines)
         local ft = vim.filetype.match({ filename = result.file })
@@ -174,13 +167,11 @@ function Finder.toggle()
         if line_num < 1 or line_num > #state.all_results then return end
         local result = state.all_results[line_num]
         if not result or not result.file or result.file == "" then return end
-        local file = result.file
-        local target_line = result.line_num
         if state.layout.close then state.layout.close() end
         vim.defer_fn(function()
-            pcall(vim.cmd, "edit " .. vim.fn.fnameescape(file))
-            if target_line then
-                pcall(vim.api.nvim_win_set_cursor, 0, { target_line, 0 })
+            pcall(vim.cmd, "edit " .. vim.fn.fnameescape(result.file))
+            if result.line_num then
+                pcall(vim.api.nvim_win_set_cursor, 0, { result.line_num, 0 })
                 vim.cmd("normal! zz")
             end
         end, 10)

@@ -1,5 +1,12 @@
 local Window = {}
 
+local function create_buffer(buf)
+    vim.bo[buf].buftype = "nofile"
+    vim.bo[buf].bufhidden = "wipe"
+    vim.bo[buf].swapfile = false
+    vim.bo[buf].buflisted = false
+end
+
 local function create_window(buf, config)
     local win = vim.api.nvim_open_win(buf, config.enter or false, {
         relative = "editor",
@@ -23,10 +30,7 @@ end
 
 local function create_panel(config)
     local buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[buf].buftype = "nofile"
-    vim.bo[buf].bufhidden = "wipe"
-    vim.bo[buf].swapfile = false
-    vim.bo[buf].buflisted = false
+    create_buffer(buf)
     local win = create_window(buf, config)
     return { buf = buf, win = win }
 end
@@ -46,10 +50,7 @@ function Window.create_float(opts)
     local width = opts.width or 60
     local height = opts.height or 10
     local buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[buf].buftype = "nofile"
-    vim.bo[buf].bufhidden = "wipe"
-    vim.bo[buf].swapfile = false
-    vim.bo[buf].buflisted = false
+    create_buffer(buf)
     local pos = get_centered_pos(width, height)
     local win = create_window(buf, {
         width = width,

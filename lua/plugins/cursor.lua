@@ -8,7 +8,6 @@ return {
             trailing_stiffness_insert_mode = 0.7,
             damping = 0.95,
             damping_insert_mode = 0.95,
-            distance_stop_animating = 0.5,
         },
     },
 }

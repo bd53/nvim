@@ -105,10 +105,8 @@ local function blame_helper()
     end
     local blame = { commit = commit:sub(1, 7), author = author, time = format_date(timestamp, commit), summary = summary }
     vim.api.nvim_buf_clear_namespace(0, blame_state.namespace, 0, -1)
-    local author_truncated = truncate(blame.author or "?", 20)
-    local text = string.format("%s (%s) %s - %s", blame.commit or "?", blame.time or "?", author_truncated, blame.summary or "?")
     vim.api.nvim_buf_set_extmark(0, blame_state.namespace, row - 1, 0, {
-        virt_text = { { text, "Comment" } },
+        virt_text = { { string.format("%s (%s) %s - %s", blame.commit or "?", blame.time or "?", truncate(blame.author or "?", 20), blame.summary or "?"), "Comment" } },
         virt_text_pos = "eol"
     })
 end
@@ -288,9 +286,7 @@ local function history_helper()
         vim.api.nvim_buf_set_lines(history_state.layout.right.buf, 0, -1, false, {})
         return
     end
-    local details_output = run_git_cmd(string.format("git show --stat --pretty=format:'Commit: %%H%%nAuthor: %%an <%%ae>%%nDate: %%ar (%%ad)%%n%%nMessage: %%s%%n%%b%%n' %s", item.hash))
-    local details = details_output or {}
-    vim.api.nvim_buf_set_lines(history_state.layout.middle.buf, 0, -1, false, details)
+    vim.api.nvim_buf_set_lines(history_state.layout.middle.buf, 0, -1, false, run_git_cmd(string.format("git show --stat --pretty=format:'Commit: %%H%%nAuthor: %%an <%%ae>%%nDate: %%ar (%%ad)%%n%%nMessage: %%s%%n%%b%%n' %s", item.hash)) or {})
     pcall(vim.api.nvim_buf_set_option, history_state.layout.middle.buf, "filetype", "git")
     local diff_output = run_git_cmd(string.format("git show --pretty=format:'' %s", item.hash))
     local diff = {}
@@ -338,8 +334,7 @@ function Git.history()
     if not ok_layout then vim.notify("Failed to create history windows: " .. tostring(layout), vim.log.levels.ERROR) return end
     history_state.layout = layout
     history_state.is_open = true
-    local display_lines = #commits > 0 and vim.tbl_map(function(c) return c.display end, commits) or {}
-    vim.api.nvim_buf_set_lines(history_state.layout.left.buf, 0, -1, false, display_lines)
+    vim.api.nvim_buf_set_lines(history_state.layout.left.buf, 0, -1, false, #commits > 0 and vim.tbl_map(function(c) return c.display end, commits) or {})
     setup_navigation_keymaps(history_state.layout.left.buf, history_state.layout.left.win, history_state.items, history_helper, function()
         local main_win = history_state.layout.left.win
         if not main_win or not vim.api.nvim_win_is_valid(main_win) then return end

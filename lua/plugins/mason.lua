@@ -20,10 +20,12 @@ return {
         dependencies = { "williamboman/mason.nvim", "williamboman/mason-lspconfig.nvim" },
         config = function()
             vim.lsp.config("clangd", {
-                root_markers = { "CMakeLists.txt", "Makefile", ".git" },
+                root_markers = { "CMakeLists.txt", "Makefile", "justfile", ".git" },
+                filetypes = { "c", "cpp" },
             })
             vim.lsp.config("lua_ls", {
                 root_markers = { ".luarc.json", ".git" },
+                filetypes = { "lua" },
                 settings = {
                     Lua = {
                         runtime = {
@@ -41,7 +43,8 @@ return {
                 },
             })
             vim.lsp.config("rust_analyzer", {
-                root_markers = { "Cargo.toml", ".git" },
+                root_dir = { "Cargo.toml", "Makefile", "justfile", ".git" },
+                filetypes = { "rust" },
                 settings = {
                     ["rust-analyzer"] = {
                         inlayHints = {
@@ -59,9 +62,11 @@ return {
             })
             vim.lsp.config("ts_ls", {
                 root_markers = { "package.json", ".git" },
+                filetypes = { "typescript" },
             })
             vim.lsp.config("svelte", {
                 root_markers = { "svelte.config.js", "package.json", ".git" },
+                filetypes = { "svelte" },
             })
             vim.lsp.enable("clangd")
             vim.lsp.enable("lua_ls")

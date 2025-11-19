@@ -4,20 +4,17 @@ return {
         build = ":TSUpdate",
         config = function()
             require("nvim-treesitter.configs").setup({
-                ensure_installed = { "cpp", "lua", "rust", "tsx", "typescript", "vimdoc", "vim", "svelte" },
+                ensure_installed = { "c", "cpp", "lua", "rust", "typescript", "tsx", "javascript", "svelte", "vimdoc", "vim" },
                 modules = {},
                 sync_install = false,
                 ignore_install = {},
                 auto_install = true,
                 highlight = {
                     enable = true,
-                    disable = function(lang, buf)
-                        if lang == "rust" then return false end
-                        if lang == "cpp" then return false end
-                        local max_filesize = 100 * 1024
+                    disable = function(_, buf)
                         local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
-                        if ok and stats and stats.size > max_filesize then return true end
-                    end,
+                        return ok and stats and stats.size > 100 * 1024
+                    end
                 },
             })
         end,
